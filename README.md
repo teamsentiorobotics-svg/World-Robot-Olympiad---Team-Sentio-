@@ -78,4 +78,4 @@ Failures changed the design. Camera-angle problems caused late detections. A pol
 
 Source code is stored in src/, CAD in models/, wiring diagrams in schemes/, photographs in t-photos/ and v-photos/, video material in video/, and test evidence in other/.
 
-Our process is: build, test, observe, identify the failure, modify, and retest.
+Our process is: build, test, observe, identify the failure, modify, and retest.](https://github.com/teamsentiorobotics-svg/World-Robot-Olympiad---Team-Sentio-.git)
