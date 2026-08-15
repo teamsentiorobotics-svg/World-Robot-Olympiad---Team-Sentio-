@@ -167,8 +167,8 @@ Commit messages should explain what changed and why, for example `fix(power): up
 
 ## Team contributions
 
-**Deyaan Patel:** software, algorithms, debugging, tuning and track testing.
-**Darsh Zaveri:** hardware integration, LEGO mechanisms, circuits, wiring and testing.
-**Aarav Jalan:** CAD, algorithm contributions, debugging, documentation and circuit construction.
+**Deyaan Agrawal:** software, algorithms, debugging, tuning and track testing.\
+**Darsh Zaveri:** hardware integration, LEGO mechanisms, circuits, wiring and testing.\
+**Aarav Jalan:** CAD, algorithm contributions, debugging, documentation and circuit construction.\
 
 Robofun Lab provided test access, mock runs and guidance at roadblocks. The submitted vehicle, code, testing and decisions remain Team Sentio’s work.
