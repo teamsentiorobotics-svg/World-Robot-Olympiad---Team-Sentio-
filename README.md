@@ -1,4 +1,4 @@
-# Team Sentio — WRO Future Engineers 2026
+# Team Sentio — World Robot Olympiad Future Engineers 2026
 
 This repository documents Team Sentio’s autonomous vehicle for the **World Robot Olympiad 2026 – Future Engineers** category.
 
