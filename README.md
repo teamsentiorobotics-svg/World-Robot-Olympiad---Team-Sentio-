@@ -2,7 +2,7 @@
 
 This repository documents Team Sentio’s autonomous vehicle for the **World Robot Olympiad 2026 – Future Engineers** category.
 
-**Team:** Deyaan Patel, Darsh Zaveri, Aarav Jalan
+**Team:** Deyaan Agrawal, Darsh Zaveri, Aarav Jalan
 **Institution:** Robofun Lab (RFL), India
 **Mechanical platform:** V3 | **Open software:** V5
 
