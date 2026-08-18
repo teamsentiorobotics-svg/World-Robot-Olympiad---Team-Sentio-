@@ -1,174 +1,474 @@
 # Team Sentio — World Robot Olympiad Future Engineers 2026
 
-This repository documents Team Sentio’s autonomous vehicle for the **World Robot Olympiad 2026 – Future Engineers** category.
+This repository documents **Team Sentio's autonomous vehicle for the World Robot Olympiad 2026 — Future Engineers category**.
 
-**Team:** Deyaan Agrawal, Darsh Zaveri, Aarav Jalan
-**Institution:** Robofun Lab (RFL), India
-**Mechanical platform:** V3 | **Open software:** V5
+**Team:** Deyaan Agrawal, Darsh Zaveri, Aarav Jalan  
+**Institution:** Robofun Lab (RFL), India  
+**Mechanical platform:** V3  
+**Open Challenge software:** V5
 
 Our engineering cycle is:
 
-**Build → Test → Observe → Find the failure → Modify → Retest**
+> **Build → Test → Observe → Find the failure → Modify → Retest**
 
-## Repository structure
+The repository is intended to make the robot, software architecture, testing process and major engineering decisions traceable and reproducible.
 
-* `t-photos` contains 2 photos of the team (an official one and one funny photo with all team members)
-* `v-photos` contains 6 photos of the vehicle (from every side, from top and bottom)
-* `video` contains the video.md file with the link to a video where driving demonstration exists
-* `schemes` contains one or several schematic diagrams in form of JPEG, PNG or PDF of the electromechanical components illustrating all the elements (electronic components and motors) used in the vehicle and how they connect to each other.
-* `src` contains code of control software for all components 
-* `models` is for the files for models used by 3D printers, laser cutting machines and CNC machines to produce the vehicle elements.
-* `other` is for other files which can be used to understand how to prepare the vehicle for the competition. 
+---
 
-## 1. Mobility and mechanical design
+## Repository Structure
 
-V3 is about **865 g** and measures **170 × 128 × 265 mm**. Wheelbase is **107.5 mm**, track width **110 mm**, wheel diameter **46 mm**, and ground clearance **14 mm**.
+| Path | Contents |
+|---|---|
+| [`src/`](src/) | Competition source code: Open Challenge, Obstacle Challenge and MPU6050 heading helper |
+| [`docs/`](docs/) | Raspberry Pi setup and software-dependency documentation |
+| [`models/`](models/) | CAD renders, printable STL files and final chassis model |
+| [`schemes/`](schemes/) | Electrical schematic and wiring reference |
+| [`v-photos/`](v-photos/) | Final vehicle views, circuit-board photographs and hardware evidence |
+| [`t-photos/`](t-photos/) | Team photographs |
+| [`video/`](video/) | Driving demonstration video evidence |
+| [`other/`](other/) | Supporting design material, Gantt sheet, logic diagrams and supplementary documentation |
+| [`requirements.md`](requirements.md) | Formal software dependency record |
 
-The chassis is mainly 3D-printed PLA with selected LEGO Technic parts. The robot uses **pure Ackermann steering**; both front wheels steer together and are driven through a differential.
+### Competition source
 
-Open steering limits are `LEFT=70`, `CENTER=95`, `RIGHT=125`. Larger commands stressed the LEGO steering supports and could disconnect the linkage, so the final range balances turning ability with reliability.
+```text
+src/
+├── Open_Challenge.py
+├── Obstacle_Challenge.py
+└── heading.py
+```
+
+`heading.py` provides the `MPU6050Heading` class used by the Obstacle Challenge software.
+
+---
+
+# 1. Mobility and Mechanical Design
+
+The final V3 robot is approximately **865 g** and measures approximately **170 × 128 × 265 mm**.
+
+| Parameter | Final V3 value |
+|---|---:|
+| Mass | ~865 g |
+| Length | 170 mm |
+| Width | 128 mm |
+| Height | 265 mm |
+| Wheelbase | 107.5 mm |
+| Track width | 110 mm |
+| Wheel diameter | 46 mm |
+| Ground clearance | 14 mm |
+
+The chassis is primarily 3D-printed PLA with selected LEGO Technic elements. The front wheels use **Ackermann steering geometry**, while the rear drivetrain uses a differential arrangement.
+
+### Steering
+
+The Open Challenge software uses:
+
+```text
+LEFT   = 70
+CENTER = 95
+RIGHT  = 125
+```
+
+Larger steering commands were rejected because they placed excessive mechanical stress on the LEGO steering supports and could disconnect the linkage. The final range therefore prioritises repeatability and mechanical reliability rather than maximum steering travel.
 
 ### Drivetrain
 
-Current motor: **JGB37-520, 12 V, 600 RPM**.
-Gear pair: **36T driving → 20T driven**.
+Final motor:
 
-`36 / 20 = 1.8`
-`600 × 1.8 = 1080 RPM ideal`
+```text
+JGB37-520
+12 V
+600 RPM nominal
+```
 
-With 46 mm wheels, ideal wheel-surface speed is about **2.60 m/s**. Practical/test-derived output was closer to **800 RPM**, or about **1.93 m/s**. This is an estimate, not a laboratory measurement.
+Gear pair:
 
-The previous 1000 RPM Johnson motor stalled after crashes/high load and the TB6612FNG driver smoked. We replaced both; the same stall has not returned. Reliability became more important than maximum RPM.
+```text
+36T driving → 20T driven
+```
 
-## 2. Power and sensor architecture
+The ideal speed ratio is:
 
-The controller is a **Raspberry Pi 5, 4 GB**. Main components are two Camera Module 3 cameras, JGB37-520 motor, TB6612FNG driver, DS3225 servo, MPU6050 IMU, SSD1306 OLED and **3S 11.1 V 2200 mAh LiPo**.
+```text
+36 / 20 = 1.8
+600 × 1.8 = 1080 RPM ideal wheel-side speed
+```
 
-Battery energy is `11.1 × 2.2 = 24.42 Wh`. A full pack measured about **12.2 V**; observed endurance was about **1.5 h / 50–60 laps**, not a controlled discharge test.
+With 46 mm wheels, the ideal wheel-surface speed is approximately **2.60 m/s**. Practical/test-derived output was closer to approximately **800 RPM**, corresponding to about **1.93 m/s**. This is an engineering estimate rather than a laboratory measurement.
 
-An earlier **5 V / 3 A** Pi supply produced repeated undervoltage warnings, so we moved to a higher-current 5 V supply.
+The earlier 1000 RPM Johnson motor stalled after crashes/high mechanical load and the motor driver failed. The team replaced both the motor and driver and prioritised drivetrain reliability over maximum RPM.
 
-Main pins:
+Mechanical reconstruction resources are available in [`models/`](models/) and [`v-photos/`](v-photos/).
 
-* GPIO5/6/13 — motor direction/PWM
-* GPIO22 — servo
-* GPIO2/3 — I2C SDA/SCL
+---
 
-The detailed wiring diagram is in `schemes/`.
+# 2. Power and Sensor Architecture
 
-A LiPo charging failure and a reverse-polarity incident also changed our safety process: supervised charging, polarity checks and a safer connector strategy.
+The main controller is a **Raspberry Pi 5, 4 GB**.
 
-## 3. Sensor placement and calibration
+Primary hardware includes:
 
-Front camera: about **5 mm right of centre**, **50° downward pitch**.
-Rear camera: about **45° downward pitch, 0° yaw**, mainly for parking.
+- 2 × Raspberry Pi Camera Module 3
+- JGB37-520 drivetrain motor
+- TB6612FNG motor driver
+- DS3225 steering servo
+- MPU6050 IMU
+- SSD1306 OLED
+- 3S 11.1 V 2200 mAh LiPo battery
 
-Earlier camera positions caused late line and unstable corner-wall detection. Changing the physical geometry solved much of it: **a software-looking problem can have a mechanical solution**.
+Battery energy:
 
-At startup, auto exposure/white balance run for about two seconds, then exposure and gain are locked. A front LED also improved low-light detection without noticeable saturation.
+```text
+11.1 V × 2.2 Ah = 24.42 Wh
+```
 
-## 4. Open Challenge software
+A fully charged pack was observed at approximately **12.2 V**. Practical endurance was around **1.5 hours / 50–60 laps**, but this was not a controlled battery-discharge experiment.
 
-`src/Open_Challenge.py` uses Python, OpenCV, NumPy, Picamera2 and RPi.GPIO at **1280 × 680 RGB888**.
+An earlier **5 V / 3 A** Raspberry Pi supply produced repeated undervoltage warnings. The robot was therefore moved to a higher-current regulated 5 V supply.
 
-Image flow:
+### Main GPIO map
 
-**Frame → blur → LAB → CLAHE → masks → morphology → contours → geometry → steering**
+| Function | BCM GPIO |
+|---|---:|
+| Motor IN1 | GPIO5 |
+| Motor IN2 | GPIO6 |
+| Motor PWM | GPIO13 |
+| Steering servo | GPIO22 |
+| I2C SDA | GPIO2 |
+| I2C SCL | GPIO3 |
 
-Black-wall contours guide the robot. Both-wall geometry gives proportional error; one-wall visibility uses a direction-aware reference; no wall gives a small directional bias. This replaced an older centring method that meandered in corners.
+The detailed electrical schematic is available in [`schemes/`](schemes/).
 
-Final Open value:
+Development failures also changed the team's safety process. A LiPo charging incident and a reverse-polarity incident led to stricter polarity checks, supervised charging and improved connector discipline.
 
-`KP = 0.012`
+---
 
-We tested about **0.010–0.050**. `0.010` was too weak, `0.015–0.020` was more aggressive, and `0.050` could overload the steering linkage. `0.012` gave the best observed balance.
+# 3. Sensor Placement and Calibration
+
+### Front camera
+
+- Approximately **5 mm right of vehicle centre**
+- Approximately **50° downward pitch**
+- Used for wall, marker and obstacle perception
+
+### Rear camera
+
+- Approximately **45° downward pitch**
+- Approximately **0° yaw**
+- Primarily intended for parking and rear-wall geometry
+
+Earlier camera placements caused late line detection and unstable corner-wall perception. Changing the physical camera geometry significantly improved software behaviour, reinforcing an important engineering lesson:
+
+> A software-looking problem can have a mechanical solution.
+
+At program startup, automatic exposure and white balance are allowed to settle for approximately two seconds. Exposure and analogue gain are then locked so that the fixed colour thresholds operate under more repeatable image conditions.
+
+A front LED was also found to improve low-light detection without noticeable saturation in the tested setup.
+
+---
+
+# 4. Open Challenge Software
+
+[`src/Open_Challenge.py`](src/Open_Challenge.py) uses:
+
+- Python 3
+- OpenCV
+- NumPy
+- Picamera2
+- RPi.GPIO-compatible GPIO control
+
+Final image configuration:
+
+```text
+1280 × 680
+RGB888 camera stream
+```
+
+### Vision pipeline
+
+```text
+Frame
+  ↓
+Gaussian blur
+  ↓
+LAB conversion
+  ↓
+CLAHE
+  ↓
+Colour masks
+  ↓
+Morphology
+  ↓
+Contours
+  ↓
+Geometry
+  ↓
+Proportional steering
+```
+
+Black-wall contours guide the robot. When both walls are visible, the controller uses their relative geometry to calculate steering error. When only one wall is visible, direction-aware references are used. If no wall is visible, a small directional fallback is applied.
+
+This replaced an earlier symmetric centring method that caused more corner meandering.
+
+### Final Open tuning
+
+```text
+KP = 0.012
+LINE_COOLDOWN = 1.3 s
+```
+
+Values from approximately `0.010` to `0.050` were tested. `0.010` was too weak, `0.015–0.020` produced more aggressive steering, and `0.050` could overstress the steering mechanism. `0.012` gave the best observed balance between responsiveness and mechanical stability.
 
 ### Direction and lap counting
 
-The first valid marker sets direction:
+The first valid direction marker determines the travel direction:
 
-* Blue first → anticlockwise
-* Orange first → clockwise
+```text
+Blue first   → Anticlockwise
+Orange first → Clockwise
+```
 
-The first marker only sets direction. Later crossings use **rising-edge logic**, so one marker staying visible is counted once.
+The marker-counting logic uses a rising-edge approach so that a marker remaining visible across multiple frames is not counted repeatedly.
 
-`LINE_COOLDOWN = 1.3 s`
+The competition configuration uses:
 
-Shorter values caused duplicate counts; longer values could miss genuine crossings.
+```text
+3 laps × 4 gate events = 12 counts
+```
 
-The setup uses **3 laps × 4 events = 12 counts**, then centres and stops.
+After the required count is reached, the steering is centred and the drivetrain is stopped.
 
-Successful Open times: **36, 30, 27, 28, 24, 25, 27 s**. Best recorded time: **24 s**.
+### Performance evidence
 
-## 5. Obstacle Challenge
+The engineering record contains **12 successful timed Open Challenge runs** with a **best recorded time of 22 s**.
 
-`src/Obstacle_Challenge.py` detects black walls, red/green pillars, direction markers and the magenta/purple parking cue.
+A five-run video-backed cohort recorded:
 
-Instead of one fixed timed turn, each pillar is treated as a **continuous image target**. Steering keeps updating as the pillar moves through the frame.
+```text
+23 s
+29 s
+28 s
+22 s
+23 s
+```
 
-This came from a corner-pillar failure where older logic committed too early. The new method uses pillar position/proximity before passing, then returns to wall following. Obstacle runs also use a lower preferred speed for more reaction time.
+The team does not claim that motor-speed command alone caused the timing difference because all environmental variables were not controlled.
 
-The team has achieved **10+ successful full Obstacle Challenge runs**. We did not retain the total number of failed attempts, so we do not claim a success percentage.
+The repository currently includes an Open Challenge driving video in [`video/`](video/).
 
-## 6. Parking
+---
 
-Parking uses the rear camera because rear-wall geometry becomes the main constraint.
+# 5. Obstacle Challenge
 
-**Course complete → parking stage → magenta/purple cue → rear view → MPU6050 heading → short forward/reverse corrections → stop inside the area**
+[`src/Obstacle_Challenge.py`](src/Obstacle_Challenge.py) contains the team's computer-vision development for:
 
-Parking combines rear-camera feedback, gyro/IMU heading and controlled forward/reverse movement.
+- Black-wall detection
+- Red pillar detection
+- Green pillar detection
+- Direction-marker detection
+- Magenta/purple parking-cue detection
+- Obstacle steering target generation
+- MPU6050-assisted parking logic
 
-The main problem has been contacting the back wall. Ackermann steering cannot rotate in place, so parking needs several small positioning movements.
+The obstacle strategy evolved from fixed timed steering toward **continuous image-target geometry**. This change followed failures in which a corner pillar caused the robot to commit to a turn too early.
 
-## 7. Engineering decisions and trade-offs
+The intended control sequence is:
 
-* **1000 RPM motor → 600 RPM JGB37-520:** old motor stalled and damaged the driver.
-* **Maximum servo travel → safe limits:** protected LEGO steering supports.
-* **Two-wall centring → direction-aware wall logic:** reduced meandering.
-* **Fixed obstacle turn → proportional pillar target:** improved corner behaviour.
-* **Old camera pose → revised front/rear geometry:** improved perception.
-* **Ambient light → front LED:** improved low-light detection.
-* **Power connector → safer keyed connector:** reduced polarity risk.
-* **Rear wing → removed:** testing did not justify it.
+```text
+Perceive environment
+        ↓
+Detect pillar / wall state
+        ↓
+Generate steering target
+        ↓
+Continuously update target while passing obstacle
+        ↓
+Return to wall-following state
+        ↓
+Complete course
+        ↓
+Enter parking stage
+```
 
-These choices show that mechanics, electronics and software affected each other.
+The team has reported **10+ successful full Obstacle Challenge runs** during development. Because the total number of failed attempts was not retained, no obstacle success percentage is claimed.
 
-## 8. Testing method
+### Public-code release status
 
-Normal sequence:
+The exact physically validated Obstacle/Parking executable must be the file published as `src/Obstacle_Challenge.py` for the final competition release.
 
-**Component test → subsystem test → low-speed integrated test → full challenge run → classify failure → modify → retest**
+A development or calibration snapshot should not be treated as a validated release merely because it is present in the repository.
 
-Before a run we check power/polarity, drivetrain, servo centre, motor direction, cameras, colour detection, IMU and the correct program.
+---
 
-We separate measurements from estimates. Exact motor torque, whole-robot current, processing latency and a controlled obstacle success-rate denominator were not retained, so we do not invent them.
+# 6. Parking
 
-## 9. Reproducing the robot
+The parking strategy uses the rear-camera geometry together with the MPU6050 heading helper in [`src/heading.py`](src/heading.py).
 
-1. Use `v-photos/` and `models/` for the mechanical build.
-2. Assemble and freely test the differential/Ackermann drivetrain.
-3. Wire from `schemes/`; confirm polarity and common ground.
-4. Use GPIO5/6/13 for motor, GPIO22 servo and GPIO2/3 I2C.
-5. Set camera angles and calibrate safe steering limits.
-6. Test motor, servo, cameras and IMU separately.
-7. Install the required Python libraries.
-8. Start at low speed and change one tuning variable at a time.
+Intended sequence:
 
-## 10. Development history and GitHub practice
+```text
+Course complete
+      ↓
+Parking stage
+      ↓
+Detect magenta/purple cue
+      ↓
+Use rear geometry
+      ↓
+Use MPU6050 heading
+      ↓
+Short forward/reverse corrections
+      ↓
+Reobserve position
+      ↓
+Stop inside parking area
+```
 
-* **V0** — LEGO mobility prototype
-* **V0.5** — rear-wing experiment
-* **V1** — working circuit + camera control
-* **V2** — 3D-printed electronics mount
-* **V3** — purpose-built chassis, revised drivetrain and dual cameras
-* **Open V5** — direction-aware wall control, `KP=0.012`, rising-edge counting
+Ackermann steering cannot rotate the robot in place. Parking therefore requires a sequence of small forward/reverse corrections rather than a single point turn.
 
-Commit messages should explain what changed and why, for example `fix(power): upgrade Pi supply after undervoltage` or `feat(open): add rising-edge line counting`.
+The most important parking failure mode observed during development was contact with the rear wall. This led to the use of shorter correction movements and repeated re-observation rather than one long open-loop reverse command.
 
-## Team contributions
+---
 
-**Deyaan Agrawal:** software, algorithms, debugging, tuning and track testing.\
-**Darsh Zaveri:** hardware integration, LEGO mechanisms, circuits, wiring and testing.\
-**Aarav Jalan:** CAD, algorithm contributions, debugging, documentation and circuit construction.\
+# 7. Engineering Decisions and Trade-offs
 
-Robofun Lab provided test access, mock runs and guidance at roadblocks. The submitted vehicle, code, testing and decisions remain Team Sentio’s work.
+| Engineering decision | Reason |
+|---|---|
+| 1000 RPM motor → JGB37-520 600 RPM | Previous motor stalled and damaged the driver |
+| Maximum servo travel → safe steering limits | Protected steering supports and linkage |
+| Symmetric wall centring → direction-aware wall logic | Reduced corner meandering |
+| Fixed obstacle turn → continuous pillar target | Improved response to corner obstacles |
+| Earlier camera pose → revised front/rear geometry | Improved perception stability |
+| Ambient light only → front LED support | Improved low-light detection |
+| Earlier connector practice → safer polarity process | Reduced power-connection risk |
+| Rear wing → removed | Testing did not justify retaining it |
+
+These decisions show that mechanics, electronics and software were treated as one interacting system rather than isolated subsystems.
+
+---
+
+# 8. Testing Method
+
+The normal Team Sentio testing sequence is:
+
+```text
+Component test
+      ↓
+Subsystem test
+      ↓
+Low-speed integrated test
+      ↓
+Full challenge run
+      ↓
+Classify failure
+      ↓
+Modify
+      ↓
+Retest
+```
+
+Before a full run, the team checks:
+
+- Power and polarity
+- Common ground
+- Drivetrain freedom
+- Motor direction
+- Servo centre and mechanical steering limits
+- Camera detection
+- Colour detection
+- MPU6050 / I2C operation
+- Correct competition program
+
+Measurements are kept separate from estimates. Values that were not retained or measured under controlled conditions are not invented retrospectively.
+
+---
+
+# 9. Reproducing the Robot
+
+A new Raspberry Pi setup should begin with the detailed guide:
+
+**[`docs/pi_setup_instruction.md`](docs/pi_setup_instruction.md)**
+
+Software dependencies are documented in:
+
+**[`requirements.md`](requirements.md)** and **[`docs/Software_Dependencies.md`](docs/Software_Dependencies.md)**
+
+Recommended reproduction order:
+
+1. Use [`models/`](models/) and [`v-photos/`](v-photos/) to reproduce the mechanical platform.
+2. Assemble the drivetrain and verify the differential and steering move freely.
+3. Wire the robot using [`schemes/`](schemes/).
+4. Confirm polarity and common ground before power-up.
+5. Configure the Raspberry Pi using [`docs/pi_setup_instruction.md`](docs/pi_setup_instruction.md).
+6. Install and verify the required software dependencies.
+7. Set the documented camera geometry.
+8. Verify steering centre and safe travel limits.
+9. Test motor, servo, cameras and MPU6050 independently.
+10. Test at reduced speed before a full autonomous run.
+11. Record the exact Git commit used for physical validation.
+12. Treat any code modification after validation as a new revision requiring retesting.
+
+### Exact-source reproducibility
+
+For the final competition release, the repository should identify the exact commit containing the physically validated competition executables.
+
+Useful command:
+
+```bash
+git rev-parse HEAD
+```
+
+The source that physically completes the challenge should be the same source published in the final release.
+
+---
+
+# 10. Development History
+
+| Version | Development stage |
+|---|---|
+| **V0** | LEGO mobility prototype |
+| **V0.5** | Rear-wing experiment |
+| **V1** | Working circuit and camera control |
+| **V2** | 3D-printed electronics mounting architecture |
+| **V3** | Purpose-built chassis, revised drivetrain and dual-camera platform |
+| **Open V5** | Direction-aware wall control, `KP=0.012`, rising-edge marker counting |
+
+The repository commit history records ongoing mechanical, electrical, software and documentation development.
+
+For the final competition release, descriptive commit messages and an identifiable validated source revision are preferred over generic upload-only messages.
+
+---
+
+# 11. Reproduction Resources
+
+| Resource | Location |
+|---|---|
+| Main project overview | [`README.md`](README.md) |
+| Software requirements | [`requirements.md`](requirements.md) |
+| Raspberry Pi setup | [`docs/pi_setup_instruction.md`](docs/pi_setup_instruction.md) |
+| Software dependency guide | [`docs/Software_Dependencies.md`](docs/Software_Dependencies.md) |
+| Open Challenge code | [`src/Open_Challenge.py`](src/Open_Challenge.py) |
+| Obstacle Challenge code | [`src/Obstacle_Challenge.py`](src/Obstacle_Challenge.py) |
+| MPU6050 heading helper | [`src/heading.py`](src/heading.py) |
+| Electrical schematic | [`schemes/`](schemes/) |
+| CAD and printable models | [`models/`](models/) |
+| Vehicle photographs | [`v-photos/`](v-photos/) |
+| Team photographs | [`t-photos/`](t-photos/) |
+| Driving video | [`video/`](video/) |
+| Supporting engineering material | [`other/`](other/) |
+
+---
+
+# Team Contributions
+
+**Deyaan Agrawal** — software, algorithms, debugging, tuning and track testing.  
+**Darsh Zaveri** — hardware integration, LEGO mechanisms, circuits, wiring and testing.  
+**Aarav Jalan** — CAD, algorithm contributions, debugging, documentation and circuit construction.
+
+Robofun Lab provided access to testing facilities, mock runs and guidance at development roadblocks. The submitted vehicle, source code, testing process and engineering decisions remain Team Sentio's work.
+
+---
+
+**Team Sentio**  
+**WRO Future Engineers 2026**  
+**Robofun Lab (RFL), India**
