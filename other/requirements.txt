@@ -1,62 +1,28 @@
 # Team Sentio — WRO Future Engineers 2026
-# Raspberry Pi 5 Software Dependencies
+# Software dependency record
+#
 # Competition programs:
 #   src/Open_Challenge.py
 #   src/Obstacle_Challenge.py
+#   src/heading.py
 #
 # Platform:
 #   Raspberry Pi 5 (4 GB)
-#   Raspberry Pi OS (64-bit)
+#   Raspberry Pi OS
 #   Python 3
-
-# ----------------------------------------------------------------------
-# Python dependencies
-# ----------------------------------------------------------------------
-
-numpy
-opencv-python
-
-# ----------------------------------------------------------------------
-# Raspberry Pi system dependencies
-# ----------------------------------------------------------------------
 #
-# Raspberry Pi-specific libraries are installed through Raspberry Pi OS
-# rather than through pip.
+# Raspberry Pi-specific Python libraries are installed using the
+# Raspberry Pi OS package manager. See README.md and the Raspberry Pi
+# Setup and Run Guide for the complete installation procedure.
 #
-# Install the required system packages using:
+# The tested system uses:
+#   NumPy
+#   OpenCV
+#   Picamera2
+#   RPi.GPIO-compatible GPIO interface
 #
-#   sudo apt update
-#   sudo apt install -y python3-picamera2 python3-opencv \
-#       python3-numpy i2c-tools
+# No additional pip-only dependencies are required by the current
+# Open Challenge software.
 #
-# Raspberry Pi 5 GPIO compatibility:
-#
-#   sudo apt remove -y python3-rpi.gpio
-#   sudo apt install -y python3-rpi-lgpio
-#
-# rpi-lgpio provides compatibility with the GPIO interface used by the
-# competition software:
-#
-#   import RPi.GPIO as GPIO
-#
-# Picamera2 is provided through Raspberry Pi OS and is imported as:
-#
-#   from picamera2 import Picamera2
-#
-# Standard-library modules such as time are included with Python and
-# therefore do not require separate installation.
-
-# ----------------------------------------------------------------------
-# Obstacle Challenge dependency
-# ----------------------------------------------------------------------
-#
-# src/Obstacle_Challenge.py imports:
-#
-#   from heading import MPU6050Heading
-#
-# The final competition repository must therefore include the tested
-# heading.py implementation used by the robot.
-#
-# If that implementation requires additional third-party Python
-# packages, those packages should be added to this requirements file
-# before the final competition release.
+# This file must be updated if the final heading.py or competition
+# software introduces an additional third-party Python dependency.
