@@ -409,13 +409,13 @@ try:
 
             angle = (CENTER + (only_x - (WIDTH - 150)) * KP)
             
-        """else:
+        else:
             if CLOCKWISE is True:
                 angle = CENTER + 5
             elif CLOCKWISE is False:
                 angle = CENTER - 5
             else:
-                angle = CENTER"""
+                angle = CENTER
                 
         # ====================================================
         # STEER
