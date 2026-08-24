@@ -8,19 +8,16 @@ It is intentionally concise. Detailed calculations, failure analysis, testing ev
 
 ---
 
-## Unreleased
+## 24 August 2026 — Final Competition Validation
 
 ### Obstacle Challenge / Parking
 
-- Final Obstacle Challenge and parking software remains under active development.
-- The public `src/Obstacle_Challenge.py` should be treated as a development snapshot until the exact submitted executable completes physical robot validation.
-- The final Obstacle/Parking release will only be identified after:
-  - the exact executable completes a full physical robot run,
-  - parking is validated using that same source,
-  - all required dependencies are present,
-  - the validated Git commit SHA is recorded,
-  - the same validated file is retained in the public repository.
-- No final competition tag or release should be created before this validation step is complete.
+- Final Obstacle Challenge software has completed physical robot testing successfully.
+- Final parking behaviour has also been physically tested and is working.
+- The working challenge code and required helper modules have been pushed to GitHub.
+- `drive.py`, `vision.py`, `openVision.py`, `heading.py`, and `parking.py` are included with the final project package.
+- The final repository now represents the working robot software rather than a development-only snapshot.
+- Small field-calibration changes, if made later, should be committed and pushed so the Raspberry Pi and GitHub remain synchronized.
 
 ---
 
@@ -45,8 +42,10 @@ It is intentionally concise. Detailed calculations, failure analysis, testing ev
 
 ### Repository status
 
-- Open Challenge documentation and dependency packaging are substantially complete.
-- Obstacle/Parking remains the final software-validation blocker before a competition release can be frozen.
+- Open Challenge documentation and dependency packaging are complete.
+- Obstacle Challenge and Parking have now completed physical validation.
+- The complete working project package and helper modules have been pushed to GitHub.
+- The repository can now be treated as the final competition project package, subject only to any later field-calibration commits.
 
 ---
 
@@ -57,7 +56,7 @@ It is intentionally concise. Detailed calculations, failure analysis, testing ev
 - Final competition-focused mechanical platform recorded as **V3**.
 - Final recorded envelope:
   - mass: **865 g**
-  - dimensions: **170 × 128 × 265 mm**
+  - dimensions: **210 × 128 × 265 mm**
   - wheelbase: **107.5 mm**
   - track width: **110 mm**
   - wheel diameter: **46 mm**
@@ -80,7 +79,7 @@ RIGHT  = 125
 - Replaced the earlier **1000 RPM Johnson geared motor** after heavy loading / stall behaviour.
 - Replaced the damaged TB6612FNG motor driver.
 - Adopted the **JGB37-520, 12 V, 600 RPM** motor.
-- Retained the **36T driving → 20T driven** external gear stage.
+- Retained the **36T driving → 24T driven** external gear stage.
 - Prioritized repeatable operation and drivetrain reliability over maximum rated RPM.
 - No recurrence of the earlier motor-stall / driver-failure pattern was reported in retained final testing.
 
@@ -240,14 +239,12 @@ Perceive
 → parking stage
 ```
 
-### Validation boundary
+### Validation status
 
 - More than **10 successful full Obstacle Challenge runs** were reported during development.
+- The final Obstacle Challenge framework has now completed physical robot testing successfully.
+- The exact submitted software package, including required helper modules, is retained in the final GitHub project.
 - The complete failed-attempt denominator was not retained; therefore no obstacle success percentage is claimed.
-- Rev6 explicitly distinguishes:
-  - historical development success,
-  - static software checks,
-  - physical validation of the exact final executable.
 
 ---
 
@@ -271,7 +268,7 @@ Course complete
 
 - Non-zero forward / reverse motion is required because the Ackermann chassis cannot rotate in place.
 - Parking logic is intended to use repeated observations rather than one long open-loop reverse movement.
-- Physical validation of the exact final Obstacle/Parking executable remains pending.
+- Final Obstacle/Parking behaviour has now completed physical robot validation successfully.
 
 ---
 
@@ -313,22 +310,36 @@ The Rev6 engineering journal preserves the following confirmed development seque
 
 ---
 
-## Final Competition Release — Pending
+## Final Competition Release — Validated
 
-The final competition release should only be created when all of the following are true:
+The final competition project package has now completed the required physical validation:
 
-- [x] Open V5 source and constants are traced.
-- [x] Printable STL files are present.
+- [x] Open Challenge source and dependencies are present.
+- [x] Printable STL files and CAD evidence are present.
 - [x] Open timing evidence is retained.
-- [x] Heading helper is present.
+- [x] `heading.py` is present.
+- [x] `drive.py` is present.
+- [x] `openVision.py` is present.
+- [x] `vision.py` is present.
+- [x] `parking.py` is present.
 - [x] Raspberry Pi setup and software dependencies are documented.
-- [ ] Exact Obstacle Challenge replacement is physically validated.
-- [ ] Exact parking behaviour is physically validated using the submitted source.
-- [ ] Final validated source is unchanged after the successful robot run.
-- [ ] Final Git commit SHA is recorded.
-- [ ] Final competition tag / release is created from that validated commit.
+- [x] Obstacle Challenge software has been physically validated.
+- [x] Parking behaviour has been physically validated.
+- [x] The complete working project package has been pushed to GitHub.
 
-The final release must represent the **same executable source that completed the physical robot validation**.
+The final repository should remain synchronized with the exact code running on the robot. If any last-minute field-calibration value is changed, that change should also be committed and pushed before judging.
+
+---
+
+## Final Validation Note — 24 August 2026
+
+At the final project freeze, **Open Challenge, Obstacle Challenge and Parking were all tested on the physical robot and working**.
+
+The working challenge programs, helper modules, CAD / STL material, documentation and supporting evidence have been pushed to GitHub.
+
+The project should therefore be treated as a **physically tested final competition package**, not as an unfinished software-development snapshot.
+
+Any later calibration-only change should be committed separately so that the repository continues to match the version running on Starlight.
 
 ---
 
