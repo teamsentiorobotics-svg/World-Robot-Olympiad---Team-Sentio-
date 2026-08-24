@@ -2,38 +2,30 @@
 
 ## Team Sentio — WRO Future Engineers 2026
 
-This document records the software dependencies required to reproduce and run **Team Sentio's WRO Future Engineers 2026 autonomous vehicle, Starlight**.
+This document records the software environment and dependencies required to reproduce and run **Team Sentio's WRO Future Engineers 2026 autonomous vehicle, Starlight**.
 
-The final competition software has been **physically tested on the robot and is working**. The complete working project package and its helper modules are retained in the GitHub repository.
+**Platform:** Raspberry Pi 5, 4 GB  
+**Operating System:** Raspberry Pi OS  
+**Programming Language:** Python 3  
+**Competition:** World Robot Olympiad 2026 — Future Engineers
 
-Detailed Raspberry Pi configuration, GPIO, camera and I2C setup instructions are provided in:
+The Open Challenge, Obstacle Challenge and Parking behaviours have been physically tested on Starlight and are working.
 
-**[`docs/pi_setup_instruction.md`](docs/pi_setup_instruction.md)**
+This file documents the software required by the final GitHub project and identifies the source modules on which the competition programs depend.
 
----
+For complete Raspberry Pi installation and configuration instructions, see:
 
-## Platform
-
-| Component | Specification |
-|---|---|
-| **Computer** | Raspberry Pi 5, 4 GB |
-| **Operating System** | Raspberry Pi OS |
-| **Programming Language** | Python 3 |
-| **Front Camera Interface** | Picamera2 |
-| **Rear Camera Interface** | Picamera2 |
-| **GPIO Interface** | RPi.GPIO-compatible interface |
-| **I2C Interface** | SMBus2 |
-| **Vision Processing** | OpenCV + NumPy |
+[`docs/pi_setup_instruction.md`](docs/pi_setup_instruction.md)
 
 ---
 
-## Final Competition Software
+# 1. Current Competition Software
 
-The competition software and required helper modules are located in [`src/`](src/).
+The current competition source is stored in:
 
 ```text
 src/
-├── Open_Challenge.py
+├── open_challenge_final_ready_to_go.py
 ├── Obstacle_Challenge.py
 ├── drive.py
 ├── openVision.py
@@ -44,92 +36,52 @@ src/
 
 | File | Purpose |
 |---|---|
-| [`src/Open_Challenge.py`](src/Open_Challenge.py)         | Autonomous Open Challenge controller                                    |
-| [`src/Obstacle_Challenge.py`](src/Obstacle_Challenge.py) | Obstacle Challenge controller                                           |
-| [`src/drive.py`](src/drive.py)                           | Motor and steering-servo control                                        |
-| [`src/openVision.py`](src/openVision.py)                 | Open Challenge BLACK / BLUE / ORANGE computer vision                    |
-| [`src/vision.py`](src/vision.py)                         | Obstacle Challenge RED / GREEN / BLACK / BLUE / ORANGE / MAGENTA vision |
-| [`src/heading.py`](src/heading.py)                       | MPU6050 gyro calibration and heading calculation                        |
-| [`src/parking.py`](src/parking.py)                       | Final dual-camera and MPU6050-assisted parking behaviour                |
+| [`src/open_challenge_final_ready_to_go.py`](src/open_challenge_final_ready_to_go.py) | Final Open Challenge autonomous controller |
+| [`src/Obstacle_Challenge.py`](src/Obstacle_Challenge.py) | Final Obstacle Challenge controller |
+| [`src/drive.py`](src/drive.py) | Motor and steering-servo GPIO/PWM control |
+| [`src/openVision.py`](src/openVision.py) | Open Challenge BLACK / BLUE / ORANGE computer vision |
+| [`src/vision.py`](src/vision.py) | Obstacle Challenge RED / GREEN / BLACK / BLUE / ORANGE / MAGENTA vision |
+| [`src/heading.py`](src/heading.py) | MPU6050 gyro calibration and relative heading calculation |
+| [`src/parking.py`](src/parking.py) | Dual-camera and MPU6050-assisted parking behaviour |
 
-All of these helper files are part of the working project package and must be present for clean-clone reproducibility.
-
----
-
-## Required Software Dependencies
-
-| Dependency | Used For |
-|---|---|
-| **Python 3**                      | Execution of all competition software                                   |
-| **OpenCV (****`cv2`****)**        | Image processing, colour segmentation, contours and navigation geometry |
-| **NumPy**                         | Image arrays, masks and numerical operations                            |
-| **Picamera2**                     | Raspberry Pi Camera Module interface                                    |
-| **RPi.GPIO-compatible interface** | Motor-driver PWM, motor direction and steering-servo control            |
-| **SMBus2**                        | I2C communication with the MPU6050 IMU                                  |
-
-No unnecessary software packages are listed as competition dependencies.
+The helper modules are part of the competition software architecture and are required for reproducibility.
 
 ---
 
-## Raspberry Pi OS Packages
-
-The primary Raspberry Pi OS packages used by the project are:
-
-```bash
-sudo apt update
-
-sudo apt install -y \
-    python3-picamera2 \
-    python3-opencv \
-    python3-numpy \
-    python3-smbus2 \
-    i2c-tools
-```
-
-The drive module imports the GPIO interface using:
-
-```python
-import RPi.GPIO as GPIO
-```
-
-The Raspberry Pi environment must therefore provide a compatible `RPi.GPIO` interface.
-
-Detailed Raspberry Pi installation and configuration instructions are available in:
-
-[**`docs/pi_setup_instruction.md`**](docs/pi_setup_instruction.md)
-
----
-
-# Software Dependency Map
+# 2. Software Architecture
 
 ## Open Challenge
 
-The final Open Challenge uses:
+The final Open Challenge executable is:
 
 ```text
-Open_Challenge.py
-│
-├── drive.py
-│   │
-│   └── RPi.GPIO-compatible interface
-│
-└── openVision.py
-    │
-    ├── OpenCV
-    ├── NumPy
-    └── Picamera2
+src/open_challenge_final_ready_to_go.py
 ```
 
-The Open Challenge controller imports:
+It imports:
 
 ```python
 import drive
 import openVision as vision
 ```
 
-`openVision.py` is intentionally separate from the Obstacle Challenge vision system.
+Dependency structure:
 
-It detects only:
+```text
+open_challenge_final_ready_to_go.py
+│
+├── drive.py
+│   └── RPi.GPIO-compatible interface
+│
+└── openVision.py
+    ├── OpenCV
+    ├── NumPy
+    └── Picamera2
+```
+
+`openVision.py` is intentionally separate from the complete Obstacle Challenge vision system.
+
+The Open Challenge requires detection of:
 
 ```text
 BLACK
@@ -137,13 +89,28 @@ BLUE
 ORANGE
 ```
 
-This keeps the Open Challenge vision pipeline focused on the colours actually required for wall following and direction / marker detection.
+This keeps the Open Challenge perception pipeline focused on the visual information required for wall following, direction detection and course-marker counting.
 
 ---
 
 ## Obstacle Challenge
 
-The final Obstacle Challenge uses:
+The final Obstacle Challenge executable is:
+
+```text
+src/Obstacle_Challenge.py
+```
+
+It imports:
+
+```python
+from heading import MPU6050Heading
+import drive
+import vision
+import parking
+```
+
+Dependency structure:
 
 ```text
 Obstacle_Challenge.py
@@ -164,19 +131,10 @@ Obstacle_Challenge.py
     ├── Picamera2
     ├── vision.py
     ├── heading.py
-    └── drive.py
+    └── drive-control module
 ```
 
-The Obstacle Challenge controller imports:
-
-```python
-from heading import MPU6050Heading
-import drive
-import vision
-import parking
-```
-
-The Obstacle vision module detects:
+The full Obstacle Challenge vision module detects:
 
 ```text
 RED
@@ -187,49 +145,233 @@ ORANGE
 MAGENTA
 ```
 
-The additional colour classes are required for pillar avoidance, course perception and parking-related features.
+Red and green are used for pillar navigation, black provides wall geometry, and the remaining colour information supports course and parking behaviour.
 
 ---
 
-## Parking Dependencies
+# 3. Core External Dependencies
 
-Parking is implemented separately in:
+| Dependency | Purpose |
+|---|---|
+| **Python 3** | Executes all competition software |
+| **OpenCV (`cv2`)** | Image processing, masks, morphology, contour detection and navigation geometry |
+| **NumPy** | Image-array and numerical operations |
+| **Picamera2** | Raspberry Pi Camera Module interface |
+| **RPi.GPIO-compatible interface** | Motor-driver and steering-servo GPIO/PWM control |
+| **SMBus2** | I2C communication with the MPU6050 IMU |
 
-```text
-src/parking.py
+The project deliberately avoids listing packages that are not used by the competition source.
+
+---
+
+# 4. Raspberry Pi OS Packages
+
+The primary Raspberry Pi OS packages required by Starlight are:
+
+```bash
+sudo apt update
+
+sudo apt install -y \
+    git \
+    python3-picamera2 \
+    python3-opencv \
+    python3-numpy \
+    python3-smbus2 \
+    i2c-tools
 ```
 
-The parking system uses:
-
-- the front Raspberry Pi camera,
-- the rear Raspberry Pi camera,
-- `vision.py`,
-- `drive.py`,
-- `heading.py`,
-- MPU6050 heading information.
-
-Both cameras use the Picamera2 interface.
-
-The final parking behaviour has been **physically tested on Starlight and is working**.
+These packages provide the Raspberry Pi-specific camera and I2C interfaces as well as the main computer-vision dependencies.
 
 ---
 
-## MPU6050 / Heading
+# 5. GPIO Support on Raspberry Pi 5
 
-The heading helper is located at:
+The drive code imports GPIO using:
+
+```python
+import RPi.GPIO as GPIO
+```
+
+The Raspberry Pi environment must therefore provide a compatible `RPi.GPIO` namespace.
+
+First test:
+
+```bash
+python3 -c "import RPi.GPIO as GPIO; print('GPIO import OK')"
+```
+
+On Raspberry Pi 5 systems where a compatible implementation is not already installed, use:
+
+```bash
+sudo apt install -y python3-rpi-lgpio
+```
+
+If the classic `python3-rpi.gpio` package conflicts with the Raspberry Pi 5 compatibility implementation:
+
+```bash
+sudo apt remove -y python3-rpi.gpio
+sudo apt install -y python3-rpi-lgpio
+```
+
+Do not intentionally maintain two conflicting implementations providing the same `RPi.GPIO` namespace.
+
+Verify again:
+
+```bash
+python3 -c "import RPi.GPIO as GPIO; print('GPIO interface OK')"
+```
+
+---
+
+# 6. GPIO Architecture
+
+The current competition hardware uses BCM numbering.
+
+| Function | BCM GPIO |
+|---|---:|
+| Motor driver IN1 | GPIO5 |
+| Motor driver IN2 | GPIO6 |
+| Motor PWM | GPIO13 |
+| Steering servo PWM | GPIO22 |
+| I2C SDA | GPIO2 |
+| I2C SCL | GPIO3 |
+
+The motor PWM frequency implemented in `drive.py` is:
+
+```text
+1000 Hz
+```
+
+The steering servo PWM frequency is:
+
+```text
+50 Hz
+```
+
+The source file:
+
+```text
+src/drive.py
+```
+
+is the authoritative reference for the steering calibration actually used by the current software.
+
+---
+
+# 7. Camera Dependencies
+
+Starlight uses two Raspberry Pi Camera Module 3 units.
+
+## Front Camera
+
+The front camera is used for:
+
+- black wall perception,
+- blue/orange marker detection,
+- red/green pillar detection,
+- obstacle navigation,
+- front parking geometry.
+
+The Open Challenge vision module initializes the front camera through:
+
+```python
+from picamera2 import Picamera2
+```
+
+The current Open vision configuration uses:
+
+```text
+Resolution: 1480 × 520
+Format:     RGB888
+Requested FPS: 60
+```
+
+---
+
+## Rear Camera
+
+The rear camera is used during parking.
+
+The parking system uses a second Picamera2 camera and combines rear-camera information with MPU6050 heading feedback.
+
+Both connected cameras should be verified using:
+
+```bash
+rpicam-hello --list-cameras
+```
+
+---
+
+# 8. Computer Vision Dependencies
+
+## Open Challenge
+
+The Open Challenge uses:
+
+```text
+src/openVision.py
+```
+
+Main Python dependencies:
+
+```python
+import cv2
+import numpy as np
+import time
+from picamera2 import Picamera2
+```
+
+The module detects:
+
+```text
+BLACK
+BLUE
+ORANGE
+```
+
+---
+
+## Obstacle Challenge
+
+The Obstacle Challenge uses:
+
+```text
+src/vision.py
+```
+
+Main Python dependencies:
+
+```python
+import cv2
+import numpy as np
+import time
+from picamera2 import Picamera2
+```
+
+The full vision module detects:
+
+```text
+RED
+GREEN
+BLACK
+BLUE
+ORANGE
+MAGENTA
+```
+
+The final obstacle-vision architecture combines colour and geometric information rather than using colour alone.
+
+---
+
+# 9. MPU6050 / Heading Dependency
+
+The heading helper is:
 
 ```text
 src/heading.py
 ```
 
-It uses:
-
-```python
-import smbus2
-import time
-```
-
-The module communicates with the MPU6050 over I2C and provides the:
+It provides the:
 
 ```python
 MPU6050Heading
@@ -237,40 +379,132 @@ MPU6050Heading
 
 class.
 
-The software:
+The main external dependency is:
 
-1. initializes the MPU6050,
-2. calibrates the Z-axis gyro offset,
-3. reads rotational velocity,
-4. integrates the rotation over time,
-5. maintains heading between `0°` and `360°`.
+```python
+import smbus2
+```
 
-The heading system can be tested independently using:
+The MPU6050 communicates through Raspberry Pi I2C.
+
+Enable I2C using:
+
+```bash
+sudo raspi-config
+```
+
+Then navigate to:
+
+```text
+Interface Options
+→ I2C
+→ Enable
+```
+
+After rebooting, verify the bus:
+
+```bash
+i2cdetect -y 1
+```
+
+The MPU6050 used by the project is expected at:
+
+```text
+0x68
+```
+
+The heading module can be tested using:
 
 ```bash
 python3 src/heading.py
 ```
 
-The robot should remain completely still during the initial calibration period.
+Keep the robot completely stationary during initial gyro calibration.
 
 ---
 
-# Python Standard Library
+# 10. Parking Dependencies
 
-The competition software also uses Python standard-library modules including:
+Parking is implemented in:
+
+```text
+src/parking.py
+```
+
+The parking architecture uses:
+
+- front camera,
+- rear camera,
+- OpenCV,
+- NumPy,
+- Picamera2,
+- `vision.py`,
+- `heading.py`,
+- MPU6050,
+- drive control.
+
+The final parking behaviour has been physically tested on Starlight and is working.
+
+---
+
+## Important Clean-Clone Dependency Check
+
+The current GitHub version of:
+
+```text
+src/parking.py
+```
+
+must be checked against the physically tested Raspberry Pi copy before the repository is permanently frozen.
+
+If the tested parking source imports:
+
+```python
+import robot_drive as drive
+```
+
+then the corresponding:
+
+```text
+robot_drive.py
+```
+
+must also be included in `src/`.
+
+If the physically tested version instead uses the existing:
+
+```text
+src/drive.py
+```
+
+then the parking import and the repository must remain synchronized with that tested version.
+
+A GitHub repository is not considered completely reproducible if a helper module exists only on the team's Raspberry Pi and is absent from the repository.
+
+The **physically tested Raspberry Pi source should be treated as authoritative** when resolving this dependency.
+
+---
+
+# 11. Python Standard Library
+
+The competition software also uses standard Python modules such as:
 
 ```python
 import time
 from time import sleep
 ```
 
-These are included with Python and do not require separate installation.
+These are included with Python 3 and do not require separate installation.
+
+Other standard-library imports may include modules used for normal Python program control.
+
+They are not listed as external dependencies.
 
 ---
 
-# Dependency Verification
+# 12. Dependency Verification
 
-After completing the Raspberry Pi setup, the main external software dependencies can be checked with:
+After completing the Raspberry Pi setup, verify the main third-party dependencies with:
 
 ```bash
 python3 - <<'PY'
@@ -284,35 +518,132 @@ print("OpenCV:", cv2.__version__)
 print("NumPy:", numpy.__version__)
 print("SMBus2: OK")
 print("Picamera2: OK")
-print("RPi.GPIO-compatible interface: OK")
-print("Team Sentio dependency check: PASS")
+print("GPIO interface: OK")
+print("Team Sentio external dependency check: PASS")
 PY
-```
-
-The MPU6050 can then be checked separately with:
-
-```bash
-python3 src/heading.py
-```
-
-The competition modules should also be checked from the repository environment to confirm that all local imports resolve correctly.
-
-For example:
-
-```bash
-cd src
-python3 -c "import drive; import openVision; import vision; import heading; import parking; print('Team Sentio modules: PASS')"
 ```
 
 ---
 
-# Clean-Clone Requirement
+# 13. Verify Local Team Sentio Modules
 
-For another user to reproduce the final robot software, the repository must contain:
+From the repository root:
+
+```bash
+cd src
+```
+
+Verify the main helper modules:
+
+```bash
+python3 - <<'PY'
+import drive
+import openVision
+import vision
+import heading
+
+print("drive.py: OK")
+print("openVision.py: OK")
+print("vision.py: OK")
+print("heading.py: OK")
+print("Team Sentio core modules: PASS")
+PY
+```
+
+Parking should then be checked separately because its drive-control import must match the exact physically tested source:
+
+```bash
+python3 -c "import parking; print('parking.py: OK')"
+```
+
+If this command produces:
+
+```text
+ModuleNotFoundError: No module named 'robot_drive'
+```
+
+the repository and physically tested Raspberry Pi dependency set are not yet synchronized.
+
+Resolve that mismatch before the final GitHub freeze.
+
+---
+
+# 14. Current Open Challenge Configuration
+
+The current committed Open Challenge executable is:
+
+```text
+src/open_challenge_final_ready_to_go.py
+```
+
+Key current software settings include:
+
+```text
+LINE_COOLDOWN     = 1.3 s
+TOTAL_LINES       = 12
+KP                = 0.013
+START_SPEED       = 40
+TARGET_SPEED      = 100
+ACCELERATION_TIME = 2.0 s
+```
+
+The current Open Challenge code imports:
+
+```python
+import drive
+import openVision as vision
+```
+
+The first valid course information is used to establish driving direction rather than permanently hard-coding one direction at startup.
+
+The actual source file remains authoritative for competition calibration.
+
+---
+
+# 15. Current Obstacle Challenge Configuration
+
+The current committed Obstacle Challenge executable is:
+
+```text
+src/Obstacle_Challenge.py
+```
+
+It imports:
+
+```python
+from heading import MPU6050Heading
+import drive
+import vision
+import parking
+```
+
+Current main settings include:
+
+```text
+total_lap            = 3
+rs                   = 45
+KP                   = 0.014
+OBSTACLE_ACTION_AREA = 18000
+```
+
+The actual physically tested source remains authoritative for all final field-calibration values.
+
+---
+
+# 16. Clean-Clone Reproduction Requirement
+
+A clean reproduction should begin with:
+
+```bash
+git clone https://github.com/teamsentiorobotics-svg/World-Robot-Olympiad---Team-Sentio-.git
+cd World-Robot-Olympiad---Team-Sentio-
+```
+
+The expected competition source should include:
 
 ```text
 src/
-├── Open_Challenge.py
+├── open_challenge_final_ready_to_go.py
 ├── Obstacle_Challenge.py
 ├── drive.py
 ├── openVision.py
@@ -321,85 +652,145 @@ src/
 └── parking.py
 ```
 
-A challenge program is not considered reproducible if it only works because a required helper module already exists locally on the team's Raspberry Pi.
+If an additional drive-control file is required by the physically tested parking code, that file must also be present.
 
-Therefore:
-
-- `drive.py` is required.
-- `openVision.py` is required for the Open Challenge.
-- `vision.py` is required for the Obstacle Challenge.
-- `heading.py` is required for MPU6050 operation.
-- `parking.py` is required for the final parking stage.
-
-These files have been included with the final project package.
+The repository should never depend on an undocumented Python file that exists only on the original Raspberry Pi.
 
 ---
 
-# Final Validation Status
+# 17. Reproduction Sequence
 
-At the final project stage:
+Recommended software reproduction sequence:
 
-- **Open Challenge has been physically tested and is working.**
-- **Obstacle Challenge has been physically tested and is working.**
-- **Parking has been physically tested and is working.**
-- Required helper modules are included.
-- The project package has been pushed to GitHub.
-- CAD / STL, documentation and supporting evidence are retained in the repository.
-
-The GitHub repository should remain synchronized with the software running on the physical robot.
-
-If a last-minute competition calibration changes any threshold, gain, steering value, speed or timing parameter, the updated source should also be committed and pushed.
+```text
+Install Raspberry Pi OS
+        ↓
+Update system packages
+        ↓
+Install OpenCV / NumPy / Picamera2 / SMBus2
+        ↓
+Install compatible GPIO support
+        ↓
+Enable I2C
+        ↓
+Verify MPU6050
+        ↓
+Verify front and rear cameras
+        ↓
+Clone repository
+        ↓
+Verify external Python dependencies
+        ↓
+Verify local source modules
+        ↓
+Test drive system safely
+        ↓
+Test vision modules
+        ↓
+Test heading module
+        ↓
+Run Open Challenge
+        ↓
+Run Obstacle Challenge
+        ↓
+Validate parking
+```
 
 ---
 
-# Dependency and Versioning Policy
+# 18. Versioning Policy
 
 Only dependencies actually used by the submitted competition software are documented here.
 
-Exact package versions are not invented when the precise versions from the physically tested Raspberry Pi environment have not been retained.
+Exact package versions are not invented when they have not been retained and verified from the physically tested Raspberry Pi environment.
 
-The physically validated source and its working Raspberry Pi environment remain the authoritative reference.
+The following should remain synchronized:
 
-If future code changes introduce another third-party dependency:
+```text
+Physical robot
+      =
+Raspberry Pi source
+      =
+GitHub source
+      =
+Documentation
+```
 
-1. install and test the dependency on the physical robot,
-2. update this document,
-3. update the Raspberry Pi setup instructions,
-4. retest the affected competition program,
-5. commit and push the change.
+If a field-calibration change modifies:
 
-The final Git revision can be identified using:
+- steering,
+- speed,
+- KP,
+- image thresholds,
+- marker cooldown,
+- parking timing,
+- camera mapping,
+- IMU logic,
+
+the changed source should be physically tested again before it is identified as the final competition release.
+
+---
+
+# 19. Record the Exact Git Revision
+
+The current Git revision can be obtained using:
 
 ```bash
 git rev-parse HEAD
 ```
 
+Check for local Raspberry Pi modifications using:
+
+```bash
+git status
+```
+
+A clean final competition setup should not contain undocumented local source changes that are absent from GitHub.
+
 ---
 
-# Related Reproduction Files
+# 20. Related Reproduction Files
 
 | Resource | Location |
 |---|---|
-| Project overview         | [`README.md`](README.md)                                       |
-| Software requirements    | [`requirements.md`](requirements.md)                           |
-| Raspberry Pi setup       | [`docs/pi_setup_instruction.md`](docs/pi_setup_instruction.md) |
-| Open Challenge           | [`src/Open_Challenge.py`](src/Open_Challenge.py)               |
-| Open vision              | [`src/openVision.py`](src/openVision.py)                       |
-| Obstacle Challenge       | [`src/Obstacle_Challenge.py`](src/Obstacle_Challenge.py)       |
-| Obstacle vision          | [`src/vision.py`](src/vision.py)                               |
-| Motor / steering control | [`src/drive.py`](src/drive.py)                                 |
-| MPU6050 heading          | [`src/heading.py`](src/heading.py)                             |
-| Parking controller       | [`src/parking.py`](src/parking.py)                             |
-| Electrical schematic     | [`schemes/`](schemes/)                                         |
-| CAD and printable models | [`models/`](models/)                                           |
-| Vehicle photographs      | [`v-photos/`](v-photos/)                                       |
-| Team photographs         | [`t-photos/`](t-photos/)                                       |
-| Competition videos       | [`video/`](video/)                                             |
-| Supporting material      | [`other/`](other/)                                             |
+| Main project overview | [`README.md`](README.md) |
+| Development history | [`CHANGELOG.md`](CHANGELOG.md) |
+| Raspberry Pi setup | [`docs/pi_setup_instruction.md`](docs/pi_setup_instruction.md) |
+| Detailed software dependencies | [`docs/Software_Dependencies.md`](docs/Software_Dependencies.md) |
+| Final Open Challenge | [`src/open_challenge_final_ready_to_go.py`](src/open_challenge_final_ready_to_go.py) |
+| Obstacle Challenge | [`src/Obstacle_Challenge.py`](src/Obstacle_Challenge.py) |
+| Drive control | [`src/drive.py`](src/drive.py) |
+| Open vision | [`src/openVision.py`](src/openVision.py) |
+| Obstacle vision | [`src/vision.py`](src/vision.py) |
+| MPU6050 heading | [`src/heading.py`](src/heading.py) |
+| Parking | [`src/parking.py`](src/parking.py) |
+| Electrical schematic | [`schemes/`](schemes/) |
+| CAD / printable models | [`models/`](models/) |
+| Vehicle photographs | [`v-photos/`](v-photos/) |
+| Team photographs | [`t-photos/`](t-photos/) |
+| Autonomous video evidence | [`video/`](video/) |
+| Supporting engineering evidence | [`other/`](other/) |
 
 ---
 
-**Team Sentio**
-**Starlight**
-**WRO Future Engineers 2026**
+# Final Software Status
+
+At the final project stage:
+
+- Open Challenge has been physically tested and is working.
+- Obstacle Challenge has been physically tested and is working.
+- Parking has been physically tested and is working.
+- Separate Open and Obstacle computer-vision modules are retained.
+- MPU6050 heading support is included.
+- Raspberry Pi setup documentation is included.
+- CAD, electrical documentation, photographs and testing evidence are included.
+- The repository is intended to reproduce the complete Starlight system rather than only provide the main challenge files.
+
+Before permanently freezing the GitHub repository, the remaining parking drive-module import should be checked against the exact working Raspberry Pi copy so that the GitHub dependency set is identical to the physically validated robot.
+
+---
+
+**Team Sentio**  
+**Starlight**  
+**World Robot Olympiad — Future Engineers 2026**  
 **Robofun Lab (RFL), India**
