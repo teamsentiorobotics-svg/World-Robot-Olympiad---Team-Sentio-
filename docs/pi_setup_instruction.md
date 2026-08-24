@@ -2,9 +2,9 @@
 
 ## Team Sentio — WRO Future Engineers 2026
 
-This document describes how to prepare the Raspberry Pi, install the required software, connect and verify the sensors, confirm the competition GPIO configuration, and run the Team Sentio Open and Obstacle Challenge programs.
+This document describes how to prepare the Raspberry Pi, install the required software, connect and verify the sensors, confirm the competition GPIO configuration, configure the GPIO18 push-button launcher, and run the Team Sentio Open and Obstacle Challenge programs.
 
-The purpose of this guide is reproducibility: another person should be able to prepare a compatible Raspberry Pi environment and understand the steps required before running the robot.
+The purpose of this guide is reproducibility: another person should be able to prepare a compatible Raspberry Pi environment and reproduce the final physically tested Team Sentio competition software setup.
 
 ---
 
@@ -32,10 +32,15 @@ The competition source files are:
 src/
 ├── Open_Challenge.py
 ├── Obstacle_Challenge.py
-└── heading.py
+├── drive.py
+├── openVision.py
+├── vision.py
+├── heading.py
+├── parking.py
+└── button_launcher.py
 ```
 
-`heading.py` provides the `MPU6050Heading` class used by the Obstacle Challenge program.
+`drive.py`, `openVision.py`, `vision.py`, `heading.py`, and `parking.py` are required helper modules. `button_launcher.py` is the optional competition push-button launcher described later in this guide.
 
 ---
 
@@ -242,6 +247,7 @@ The competition programs use BCM GPIO numbering.
 | Motor driver IN2 | GPIO6 | Pin 31 |
 | Motor PWM | GPIO13 | Pin 33 |
 | Steering servo PWM | GPIO22 | Pin 15 |
+| Start / mode push button | GPIO18 | Pin 12 |
 | I2C SDA | GPIO2 | Pin 3 |
 | I2C SCL | GPIO3 | Pin 5 |
 
@@ -393,7 +399,7 @@ The root should contain files/folders including:
 
 ```text
 README.md
-requirements.txt
+requirements.md
 src/
 models/
 schemes/
@@ -415,7 +421,12 @@ It should contain:
 ```text
 Open_Challenge.py
 Obstacle_Challenge.py
+drive.py
+openVision.py
+vision.py
 heading.py
+parking.py
+button_launcher.py
 ```
 
 ---
@@ -693,15 +704,279 @@ python3 src/Obstacle_Challenge.py
 
 ### Release-integrity requirement
 
-Only the exact Obstacle/Parking executable that has completed physical robot validation should be labelled as the final competition executable.
+The final Obstacle/Parking executable has completed physical robot validation and is working. The GitHub version should remain synchronized with the exact tested source.
 
-A development or calibration snapshot must not be presented as a physically validated release.
+Any later development or calibration change must be physically retested before being presented as the validated competition release.
 
 If parking speed values, camera selection, steering calls, IMU logic or other actuation behaviour are modified, the resulting file should be treated as a new revision and physically retested before being declared validated.
 
 ---
 
-## 21. Competition Testing Sequence
+
+## 21. Configure GPIO18 Push-Button Challenge Launcher
+
+Team Sentio uses a physical push button on **BCM GPIO18 (physical pin 12)** so that powering the robot does **not** immediately start a challenge program.
+
+The launcher starts automatically after the Raspberry Pi graphical desktop loads, but the robot remains waiting until the button is deliberately pressed.
+
+### Button behaviour
+
+```text
+Short press (< 1.5 s)  → Open Challenge
+Long press (≥ 1.5 s)   → Obstacle Challenge
+```
+
+The challenge starts only **after the button is released**.
+
+This provides one physical competition button for both programs while preventing the earlier behaviour where an autonomous program could begin immediately after power-up.
+
+### Wiring
+
+Connect a normally-open momentary push button as follows:
+
+| Button connection | Raspberry Pi |
+|---|---|
+| Side 1 | GPIO18 — BCM18 — physical pin 12 |
+| Side 2 | GND — for example physical pin 14 |
+
+The launcher uses the Raspberry Pi's internal pull-up resistor, so no external pull-up resistor is required.
+
+```text
+GPIO18 (Pin 12)
+      |
+   [ BUTTON ]
+      |
+GND (Pin 14)
+```
+
+Normal state:
+
+```text
+GPIO18 = HIGH
+```
+
+Button pressed:
+
+```text
+GPIO18 = LOW
+```
+
+### Create the launcher
+
+Create:
+
+```text
+src/button_launcher.py
+```
+
+with the following content:
+
+```python
+#!/usr/bin/env python3
+
+import time
+import subprocess
+import sys
+from pathlib import Path
+
+import RPi.GPIO as GPIO
+
+BUTTON_PIN = 18
+LONG_PRESS_SECONDS = 1.5
+
+SRC_DIR = Path(__file__).resolve().parent
+OPEN_PROGRAM = SRC_DIR / "Open_Challenge.py"
+OBSTACLE_PROGRAM = SRC_DIR / "Obstacle_Challenge.py"
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+print("Team Sentio button launcher ready")
+print("Short press: Open Challenge")
+print("Long press: Obstacle Challenge")
+
+try:
+    while True:
+        GPIO.wait_for_edge(BUTTON_PIN, GPIO.FALLING, bouncetime=200)
+
+        press_start = time.monotonic()
+
+        while GPIO.input(BUTTON_PIN) == GPIO.LOW:
+            time.sleep(0.02)
+
+        press_duration = time.monotonic() - press_start
+
+        if press_duration >= LONG_PRESS_SECONDS:
+            program = OBSTACLE_PROGRAM
+            print(f"Long press ({press_duration:.2f}s): starting Obstacle Challenge")
+        else:
+            program = OPEN_PROGRAM
+            print(f"Short press ({press_duration:.2f}s): starting Open Challenge")
+
+        subprocess.run(
+            [sys.executable, str(program)],
+            cwd=str(SRC_DIR),
+            check=False
+        )
+
+        print("Challenge program ended")
+        print("Waiting for next button press...")
+
+        time.sleep(0.5)
+
+except KeyboardInterrupt:
+    print("Button launcher stopped")
+
+finally:
+    GPIO.cleanup(BUTTON_PIN)
+```
+
+Make it executable:
+
+```bash
+chmod +x src/button_launcher.py
+```
+
+### Test the button before enabling autostart
+
+From the repository root:
+
+```bash
+python3 src/button_launcher.py
+```
+
+The terminal should show:
+
+```text
+Team Sentio button launcher ready
+Short press: Open Challenge
+Long press: Obstacle Challenge
+```
+
+Test with the drive wheels raised or with the robot safely positioned on the track.
+
+1. Briefly press and release the button.
+2. Confirm that `Open_Challenge.py` starts.
+3. Stop the Open program normally.
+4. Restart the launcher if required.
+5. Hold the button for at least 1.5 seconds and release it.
+6. Confirm that `Obstacle_Challenge.py` starts.
+
+Do not enable automatic startup until both button actions have been verified.
+
+### Automatically start the button listener after boot
+
+Because the current competition programs use `cv2.imshow()`, the recommended launcher startup method is **graphical desktop autostart**, not a headless boot service.
+
+Configure Raspberry Pi OS to boot into the graphical desktop with automatic login if the competition setup requires one-switch operation.
+
+Create the desktop autostart directory:
+
+```bash
+mkdir -p ~/.config/autostart
+```
+
+From the repository root, determine the absolute repository path:
+
+```bash
+pwd
+```
+
+For example:
+
+```text
+/home/aarav_sentio/World-Robot-Olympiad---Team-Sentio-
+```
+
+Create:
+
+```bash
+nano ~/.config/autostart/sentio-button.desktop
+```
+
+Paste:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Team Sentio Button Launcher
+Comment=GPIO18 launcher for Open and Obstacle Challenge
+Exec=python3 /home/aarav_sentio/World-Robot-Olympiad---Team-Sentio-/src/button_launcher.py
+Terminal=true
+X-GNOME-Autostart-enabled=true
+```
+
+If the Raspberry Pi username or repository path is different, replace the path in `Exec=` with the actual path returned by `pwd`.
+
+Save with:
+
+```text
+Ctrl+O
+Enter
+Ctrl+X
+```
+
+Reboot:
+
+```bash
+sudo reboot
+```
+
+After the graphical desktop loads, the button launcher should start and remain waiting.
+
+**The robot must not move merely because power was switched on.**
+
+Movement begins only after:
+
+```text
+Short press → Open Challenge
+Long press  → Obstacle Challenge
+```
+
+### Verify autostart
+
+After reboot:
+
+1. Do not touch the button.
+2. Confirm that the robot remains stationary.
+3. Confirm that the launcher terminal is waiting for input.
+4. Short-press GPIO18 and confirm Open Challenge starts.
+5. Reboot or return to the launcher.
+6. Long-press GPIO18 and confirm Obstacle Challenge starts.
+
+### Disable the launcher
+
+To disable automatic button launching without deleting the source file:
+
+```bash
+rm ~/.config/autostart/sentio-button.desktop
+```
+
+Then reboot:
+
+```bash
+sudo reboot
+```
+
+### Important competition safety rule
+
+The push button is a **start command**, not an emergency stop.
+
+Always keep the main electrical power switch / rapid disconnect accessible.
+
+Before pressing the button:
+
+- place the robot in the correct starting position,
+- confirm the track is clear,
+- confirm no hands or tools are near the wheels,
+- confirm steering is mechanically free,
+- allow the Raspberry Pi and launcher to finish booting,
+- use a deliberate short or long press for the required challenge.
+
+---
+
+## 22. Competition Testing Sequence
+
 
 Team Sentio uses staged testing rather than immediately running an unverified full-speed program.
 
@@ -727,7 +1002,7 @@ This reduces the risk of confusing software, electrical and mechanical failures.
 
 ---
 
-## 22. Minimum Subsystem Verification
+## 23. Minimum Subsystem Verification
 
 Before a full competition run, confirm:
 
@@ -768,6 +1043,21 @@ print("Dependency check: PASS")
 PY
 ```
 
+### GPIO18 start button
+
+```bash
+python3 src/button_launcher.py
+```
+
+Confirm:
+
+```text
+Short press → Open Challenge
+Long press  → Obstacle Challenge
+```
+
+Stop the launcher with `Ctrl+C` after the manual test.
+
 ### Git revision
 
 ```bash
@@ -779,7 +1069,7 @@ Only proceed to an autonomous full run when the required checks pass.
 
 ---
 
-## 23. Troubleshooting
+## 24. Troubleshooting
 
 ### `ModuleNotFoundError: No module named 'cv2'`
 
@@ -951,7 +1241,55 @@ Always position the robot safely before launching the Open Challenge.
 
 ---
 
-## 24. Do Not Tune Multiple Variables at Once
+
+### GPIO18 button does not respond
+
+Confirm the button wiring:
+
+```text
+GPIO18 / physical pin 12 → button → GND
+```
+
+Check the raw GPIO state:
+
+```bash
+python3 - <<'PY'
+import RPi.GPIO as GPIO
+import time
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+print("GPIO18 test. Press Ctrl+C to stop.")
+
+try:
+    while True:
+        print(GPIO.input(18))
+        time.sleep(0.2)
+finally:
+    GPIO.cleanup()
+PY
+```
+
+Expected behaviour:
+
+```text
+Not pressed → 1
+Pressed     → 0
+```
+
+If the launcher works manually but not after reboot:
+
+1. Confirm the graphical desktop has loaded.
+2. Confirm the repository path in `~/.config/autostart/sentio-button.desktop`.
+3. Run the exact `Exec=` command manually in a terminal.
+4. Confirm the desktop user has GPIO access.
+5. Confirm `src/button_launcher.py` exists.
+6. Confirm the competition source filenames exactly match the launcher.
+
+---
+
+## 25. Do Not Tune Multiple Variables at Once
 
 When calibration changes are required, change one meaningful variable at a time.
 
@@ -979,31 +1317,36 @@ This keeps the effect of each engineering change traceable.
 
 ---
 
-## 25. Final Competition Release Check
+## 26. Final Competition Release Check
 
 Before identifying a GitHub revision as the final competition release, confirm:
 
-- [ ] Correct Raspberry Pi boots without undervoltage warnings.
-- [ ] Required Python imports pass.
-- [ ] Front camera detected.
-- [ ] Rear camera detected where required.
-- [ ] Camera geometry matches the documented mounts.
-- [ ] I2C enabled.
-- [ ] MPU6050 visible at `0x68`.
-- [ ] `heading.py` calibration test passes.
-- [ ] Motor direction correct.
-- [ ] Steering linkage secure.
-- [ ] Open steering limits physically safe.
-- [ ] Open Challenge program completes a physical run.
-- [ ] Obstacle Challenge program completes the required physical validation.
-- [ ] Parking behaviour is validated using the exact submitted source.
-- [ ] `Open_Challenge.py` is the tested file.
-- [ ] `Obstacle_Challenge.py` is the tested file.
-- [ ] `heading.py` is the tested dependency.
-- [ ] No required source file is missing.
-- [ ] Repository dependencies are documented.
-- [ ] Git working tree contains no accidental local edits.
-- [ ] Exact validation commit SHA is recorded.
+- [x] Correct Raspberry Pi boots without undervoltage warnings.
+- [x] Required Python imports pass.
+- [x] Front camera detected.
+- [x] Rear camera detected where required.
+- [x] Camera geometry matches the documented mounts.
+- [x] I2C enabled.
+- [x] MPU6050 visible at `0x68`.
+- [x] `heading.py` calibration test passes.
+- [x] Motor direction correct.
+- [x] Steering linkage secure.
+- [x] Open steering limits physically safe.
+- [x] GPIO18 push button is wired and verified.
+- [x] Short press launches Open Challenge.
+- [x] Long press launches Obstacle Challenge.
+- [x] Open Challenge program completes a physical run.
+- [x] Obstacle Challenge program completes physical validation.
+- [x] Parking behaviour is physically validated.
+- [x] `Open_Challenge.py` is present.
+- [x] `Obstacle_Challenge.py` is present.
+- [x] `drive.py` is present.
+- [x] `openVision.py` is present.
+- [x] `vision.py` is present.
+- [x] `heading.py` is present.
+- [x] `parking.py` is present.
+- [x] Repository dependencies are documented.
+- [x] Final working project package has been pushed to GitHub.
 
 Record the final source identity with:
 
@@ -1015,7 +1358,7 @@ A final GitHub tag or release can then be associated with that physically valida
 
 ---
 
-## 26. Reproduction Summary
+## 27. Reproduction Summary
 
 A clean Team Sentio Raspberry Pi setup follows this sequence:
 
@@ -1042,27 +1385,38 @@ Test heading.py
         ↓
 Check mechanical and electrical systems
         ↓
+Wire and verify GPIO18 push button
+        ↓
+Configure button launcher autostart
+        ↓
 Run staged subsystem tests
         ↓
-Run Open Challenge
+Short press → run Open Challenge
         ↓
-Run physically validated Obstacle Challenge
+Long press → run Obstacle Challenge
+        ↓
+Confirm parking
         ↓
 Record final tested release
 ```
 
 ---
 
-## 27. Related Repository Files
+## 28. Related Repository Files
 
 For the complete robot reconstruction, also refer to:
 
 ```text
 README.md
-requirements.txt
+requirements.md
 src/Open_Challenge.py
 src/Obstacle_Challenge.py
+src/drive.py
+src/openVision.py
+src/vision.py
 src/heading.py
+src/parking.py
+src/button_launcher.py
 schemes/
 models/
 v-photos/
@@ -1071,6 +1425,8 @@ video/
 ```
 
 The Raspberry Pi software environment is only one part of reproduction. The submitted CAD, wiring, physical photographs, calibration record and exact physically tested competition source should be used together.
+
+At the final project stage, the Open Challenge, Obstacle Challenge and Parking behaviours were physically tested and working. The complete working project package was pushed to GitHub.
 
 ---
 
