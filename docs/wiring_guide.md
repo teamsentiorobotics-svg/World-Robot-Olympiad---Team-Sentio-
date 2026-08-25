@@ -74,8 +74,3 @@ The documented software configuration uses:
 | Motor driver | Motors ON | 10.8 V |
 | Buck 1 | Tested output | 5.0 V |
 | Pi supply | Tested output | 5.0 V |
-
-## Related Resources
-
-- [Open the final schematic](../schemes/schematic.png)
-- [Back to Start Here](./START_HERE.md)
