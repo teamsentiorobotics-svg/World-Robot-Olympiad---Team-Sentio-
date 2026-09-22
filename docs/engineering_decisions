@@ -1,0 +1,555 @@
+# Starlight Engineering Decision Log
+
+**Project:** Starlight  
+**Team:** Sentio 1747  
+**Competition:** WRO Future Engineers 2026  
+**Purpose:** Record significant engineering decisions, the alternatives considered, the reason for each final choice, and the testing or evidence supporting that choice.
+
+---
+
+## Why We Keep a Decision Log
+
+Starlight was not designed as a fixed system from the beginning.
+
+Major design choices changed as testing revealed limitations in:
+
+- drivetrain torque;
+- steering geometry;
+- camera placement;
+- colour perception;
+- obstacle clearance;
+- parking repeatability;
+- power delivery;
+- heading estimation;
+- distance sensing;
+- software architecture.
+
+This log records **why the current design exists**.
+
+The final configuration should therefore not be interpreted as the only design considered. It is the result of repeated:
+
+**Requirement → Prototype → Test → Failure / Limitation → Trade-off → Decision → Retest**
+
+---
+
+## Engineering Decision Register
+
+| ID | Decision | Previous Approach | Final Approach | Why We Chose It | Evidence / Validation |
+| --- | --- | --- | --- | --- | --- |
+| **D01** | Drive gearing | Approximately **1.5× speed-increasing drivetrain ratio** | **1:1 drivetrain ratio** | Higher theoretical speed was less valuable than available torque and reliable acceleration. The speed-increasing configuration increased drivetrain load and contributed to motor-stall risk. | Drivetrain testing, motor-stall observations, later full-run testing |
+| **D02** | Drive motor | Earlier geared drive motor | **12 V, 600 RPM geared encoder motor** | Required a more suitable balance of torque, speed, control margin, and feedback capability after problems with the earlier drivetrain configuration. | Motor testing and integrated challenge runs |
+| **D03** | Motion control | Primarily **time-based movement** | **Encoder-assisted movement** where repeatable displacement is required | Time-based commands change with battery voltage, wheel slip, surface condition, and mechanical load. Encoder feedback provides a direct measurement of drivetrain movement. | Encoder calibration and repeatability testing |
+| **D04** | Steering architecture | Large direct steering corrections | **Bounded Ackermann steering commands** | Large corrections could mechanically stress or disconnect the linkage. Software limits allow higher-level controllers to request corrections without exceeding useful mechanical travel. | Servo testing, linkage observations, integrated steering tests |
+| **D05** | Camera placement | Earlier front / intermediate mounting configurations | **Rear-positioned dual-camera geometry with revised viewing angles** | Camera geometry was limiting useful perception. Relocating the cameras improved the visible course region and created more useful image geometry for line, wall, obstacle, and parking detection. | Vision calibration, physical field tests, post-Nationals redesign |
+| **D06** | Camera mounting | Adjustable / evolving prototype mounts | **Rigid redesigned mounts** integrated into the APOC chassis | Small changes in camera pose altered pixel geometry and colour-region behaviour. A rigid known pose improves calibration repeatability. | Repeated calibration and field testing |
+| **D07** | Vision architecture | Broad-frame colour detection | **Multiple task-specific Regions of Interest (ROIs)** | Large general detection areas included irrelevant parts of the image and increased false detections. Different parts of the image are useful for different navigation tasks. | Vision testing and calibration runs |
+| **D08** | Robot-body handling in vision | Robot body allowed to remain within usable frame regions | **Body-exclusion mask** | Dark chassis components could enter vision regions and be interpreted as useful track information. Explicit exclusion was more reliable than attempting to tune thresholds around the problem. | Camera-frame inspection and vision tests |
+| **D09** | Colour classification | Primarily HSV thresholding | **HSV + LAB hybrid colour processing** | Colour appearance varied significantly with illumination. Combining colour-space information provided better separation for important field colours than relying on a single representation. | Lighting calibration and physical-field testing |
+| **D10** | Colour calibration | Fixed thresholds assumed to transfer between environments | **Venue-specific calibration retained as part of setup** | Warm or yellow lighting could shift colour appearance, including confusion between red and magenta. Calibration under actual lighting is therefore treated as an operational requirement. | Warm-light tests and competition-field calibration |
+| **D11** | Critical colour events | Act immediately when a colour is detected | **Area, geometry, state, and confirmation conditions before acting** | A correct colour can still be observed at the wrong point in the run. State-aware confirmation reduces premature transitions. | False-trigger observations and parking tests |
+| **D12** | Navigation interpretation | Colour interpreted largely independently | **Colour + ROI geometry + current course state** | The same colour does not always imply the same manoeuvre. Combining classification with location and state gives the controller more context. | Obstacle and line-following tests |
+| **D13** | Obstacle avoidance | General reactive steering around detected pillars | **Direction-aware and state-aware obstacle manoeuvres** | Pillar position must be interpreted relative to clockwise / anticlockwise travel, wall location, current corner phase, and available clearance. | Obstacle Challenge testing |
+| **D14** | Green obstacle clearance | Earlier avoidance geometry | **Revised green-pillar approach and exit geometry** | A detected obstacle could still be contacted if the physical path did not provide enough clearance. Avoidance therefore had to be treated as a trajectory problem, not only a perception problem. | Competition observations and post-event retesting |
+| **D15** | Parking trigger | Simple visual cue detection | **State-conditioned visual trigger with stronger confirmation** | Magenta could become visible before the robot reached the intended parking phase. Immediate triggering created premature transitions. | Parking trials and false-trigger observations |
+| **D16** | Parking sensing | **Camera + heading** | **Camera + IMU heading + ToF distance sensing** | Vision and heading estimate orientation and scene state, but neither directly measures the remaining physical gap. ToF sensors provide local distance information for terminal positioning. | Parking tests and sensor integration trials |
+| **D17** | Number of parking distance sensors | No direct ranging, followed by limited ranging | **Three VL53L0X ToF sensors** | Multiple local distance measurements provide more spatial information during final positioning and reduce dependence on one visual or ranging observation. | ToF calibration and parking testing |
+| **D18** | ToF trigger behaviour | Act from a single qualifying distance reading | **Repeated / confirmed distance detection before state transition** | A single sample may be transient or may correspond to the wrong physical surface. Confirmation improves robustness. | ToF and parking trials |
+| **D19** | Parking path by course direction | Shared manoeuvre attempted for both directions | **Direction-dependent entry followed by shared terminal routine** | Clockwise and anticlockwise approaches produce different positions and headings. Forcing identical entry behaviour created unnecessary error. | CW / ACW parking trials |
+| **D20** | Turning control | Fixed-time turns | **IMU-assisted heading control where heading accuracy matters** | Fixed turn durations vary with grip, battery condition, motor response, and initial pose. Heading feedback measures the result rather than assuming it. | MPU6050 calibration and heading tests |
+| **D21** | Final parking positioning | Predominantly time-dependent motion | **Sensor-informed terminal positioning** | Small accumulated motion errors become important inside the parking area. Direct heading and distance measurements reduce dependence on timing alone. | Final-stop and parking trials |
+| **D22** | Chassis after Nationals | Nationals chassis configuration | **Redesigned APOC chassis and mounting system** | The Nationals configuration limited the desired camera placement and sensing geometry. The chassis was changed to support the revised perception and parking architecture. | Mechanical redesign and APOC integration testing |
+| **D23** | Sensor mounting | Sensors added around an existing mechanical layout | **Mounts designed around required sensing geometry** | Sensor performance depends on what physical region is actually visible. Placement was treated as part of sensing design rather than merely an attachment problem. | Physical alignment and integrated tests |
+| **D24** | Power delivery | Earlier regulated supply with limited current margin | **Higher-current regulated Raspberry Pi supply arrangement** | Undervoltage warnings showed that the earlier supply did not provide sufficient margin under combined computational and sensor load. | Raspberry Pi undervoltage observations and later integrated testing |
+| **D25** | Software organization | More behaviour contained in monolithic challenge scripts | **Reusable drive, encoder, vision, heading, ToF, and parking modules** | Modular components allow subsystems to be tested independently and reduce duplication between Open and Obstacle Challenge code. | Component tests and current repository structure |
+| **D26** | Debugging method | Change parameters during full-system runs | **Subsystem-first debugging followed by integration** | Full-run failures can hide whether the original problem came from mechanics, sensing, control, or state logic. Isolated tests make diagnosis faster and more traceable. | Servo, encoder, colour, ToF, heading, and drive test programs |
+| **D27** | Parameter changes | Multiple simultaneous tuning changes | **Change one meaningful variable before retesting where practical** | Changing several variables makes it difficult to determine which modification caused an improvement or regression. | Development workflow and repeated calibration |
+| **D28** | Reliability claims | Informal statements that a change “worked” | **Retest status without unsupported percentages** | A successful trial demonstrates functionality but does not establish a statistical reliability rate unless the number of attempts was recorded. | Failure log and testing records |
+| **D29** | Open and Obstacle Challenge control | Shared assumptions across substantially different tasks | **Task-specific high-level controllers using shared low-level modules** | Both challenges use the same robot hardware, but their perception cues, transitions, and manoeuvre requirements differ. | Open and Obstacle Challenge software testing |
+| **D30** | Post-Nationals development strategy | Continue tuning the Nationals configuration | **Use Nationals results to justify mechanical, sensing, and software redesign before APOC** | Some limitations were architectural rather than parameter-level. Continuing to tune the same configuration would not solve field-of-view, parking-sensing, and clearance constraints. | Nationals observations followed by APOC redesign and retesting |
+
+---
+
+## Detailed Decision Records
+
+### D01 — Drivetrain Ratio: Speed vs Torque
+
+**Problem:**  
+The earlier drivetrain used gearing intended to increase vehicle speed.
+
+**Previous approach:**  
+Approximately **1.5× speed increase** through the drivetrain.
+
+**Observed limitation:**  
+Increasing output speed reduced available wheel torque and increased drivetrain load. Under demanding conditions, this reduced the useful operating margin of the motor.
+
+**Alternatives considered:**
+
+1. retain the speed-increasing gearing;
+2. reduce the ratio partially;
+3. use direct **1:1** transmission;
+4. replace the motor while retaining aggressive gearing.
+
+**Decision:**  
+Use a **1:1 drivetrain ratio** together with the revised motor configuration.
+
+**Trade-off:**
+
+| Advantage | Cost |
+| --- | --- |
+| Higher usable torque | Lower theoretical maximum speed |
+| Lower drivetrain stress | Less aggressive straight-line acceleration |
+| Greater reliability margin | Requires speed to come primarily from motor selection |
+| Simpler power transmission | Gives up an attractive but unnecessary headline speed |
+
+**Reasoning:**  
+The competition rewards completed, controlled runs rather than unloaded drivetrain speed. Reliability and controllability therefore had greater engineering value than maximum theoretical velocity.
+
+---
+
+### D03 — Encoder Feedback Instead of Time Alone
+
+**Problem:**  
+A command such as:
+
+```text
+Drive forward for X seconds
+```
+
+does not guarantee the same displacement every time.
+
+The actual movement depends on:
+
+- battery condition;
+- motor loading;
+- wheel grip;
+- surface condition;
+- starting velocity;
+- drivetrain friction.
+
+**Previous approach:**  
+Primarily time-based movement.
+
+**Decision:**  
+Introduce **encoder-assisted displacement control** for movements where travelled distance must be more repeatable.
+
+```text
+Target movement
+      ↓
+Read encoder
+      ↓
+Drive motor
+      ↓
+Compare movement with target
+      ↓
+Target reached?
+   ↙       ↘
+ NO        YES
+ ↓          ↓
+Continue    Stop
+```
+
+**Trade-off:**  
+Encoder control introduces additional hardware, calibration, code, and possible encoder failure modes. This complexity was accepted because repeatable movement was more valuable for precise manoeuvres than the simplicity of open-loop timing.
+
+---
+
+### D05–D07 — Camera Geometry Before Threshold Tuning
+
+**Problem:**  
+Earlier vision behaviour could not be made sufficiently reliable through threshold adjustment alone.
+
+**Key finding:**  
+
+> A colour threshold cannot detect information that the camera does not see clearly.
+
+**Previous approach:**
+
+```text
+Detection problem
+      ↓
+Adjust threshold
+      ↓
+Adjust threshold again
+```
+
+**Revised approach:**
+
+```text
+Detection problem
+      ↓
+Inspect raw camera view
+      ↓
+Check camera geometry
+      ↓
+Check useful field of view
+      ↓
+Redesign camera position / mount
+      ↓
+Define task-specific ROIs
+      ↓
+Calibrate thresholds
+```
+
+**Decision:**  
+Redesign the camera configuration and build the vision pipeline around **multiple task-specific ROIs**.
+
+This changed the design question from:
+
+> "Which pixels have the correct colour?"
+
+to:
+
+> "Which relevant pixels, in the correct part of the image, have the correct colour for the robot's current state?"
+
+That distinction became fundamental to the final perception architecture.
+
+---
+
+### D09 — Hybrid Colour Processing
+
+**Constraint:**  
+Competition lighting is not identical to development lighting.
+
+A colour may change in:
+
+- brightness;
+- saturation;
+- apparent hue;
+- contrast against surrounding surfaces.
+
+**Previous approach:**  
+Depend mainly on one colour representation.
+
+**Decision:**  
+Use a hybrid **HSV + LAB** approach where useful.
+
+**Why:**  
+
+HSV provides useful hue and saturation information, while LAB can provide additional separation under changing illumination.
+
+Neither colour space was treated as universally superior. The choice was based on which representation best separated the required physical feature during calibration.
+
+---
+
+### D16–D18 — Why Parking Became Multi-Sensor
+
+Parking requires information about several different physical quantities.
+
+| Required Information | Sensor / Method |
+| --- | --- |
+| Visual course cue | Camera |
+| Robot orientation | MPU6050 / heading |
+| Local physical gap | ToF sensors |
+| Vehicle movement | Encoder where applicable |
+
+The earlier architecture relied more heavily on **camera interpretation and heading**.
+
+That was sufficient for determining:
+
+- what the robot could see;
+- approximately where it was in the sequence;
+- which direction it was facing.
+
+It did **not** directly answer:
+
+> "How far is the robot from the nearby physical surface?"
+
+The final architecture therefore added ToF sensing.
+
+```text
+Camera
+   ↓
+Course / parking context
+
+IMU
+   ↓
+Heading / orientation
+
+ToF sensors
+   ↓
+Physical distance
+
+Encoder
+   ↓
+Vehicle displacement
+
+        ↓
+Combined parking decision
+```
+
+The additional complexity was accepted because the sensors answer different questions rather than merely duplicating one another.
+
+---
+
+### D19 — Separate Clockwise and Anticlockwise Parking Entry
+
+A single parking routine initially appears attractive because it reduces code.
+
+However, clockwise and anticlockwise runs do not necessarily deliver the vehicle to the parking region with the same:
+
+- lateral offset;
+- orientation;
+- curvature;
+- visible geometry.
+
+The design therefore separates:
+
+```text
+CLOCKWISE ENTRY
+       ↓
+Direction-specific alignment
+       ↓
+Shared final parking logic
+```
+
+and:
+
+```text
+ANTICLOCKWISE ENTRY
+       ↓
+Direction-specific repositioning
+       ↓
+Shared final parking logic
+```
+
+This introduces additional state logic but avoids forcing physically different starting conditions into an identical manoeuvre.
+
+---
+
+### D20 — Heading Feedback Instead of Fixed-Time Rotation
+
+**Previous assumption:**
+
+```text
+Turn for X seconds ≈ rotate Y degrees
+```
+
+This relationship changes with:
+
+- surface friction;
+- wheel slip;
+- battery state;
+- steering geometry;
+- velocity;
+- initial robot pose.
+
+**Decision:**  
+Use the MPU6050 to measure heading during manoeuvres where final orientation matters.
+
+**Engineering principle:**
+
+```text
+Do not assume the commanded motion occurred.
+
+Measure the resulting state.
+```
+
+Time-based movement is still useful where extreme precision is unnecessary, but heading-critical behaviour uses feedback where practical.
+
+---
+
+### D22 — Post-Nationals Chassis Redesign
+
+The post-Nationals redesign was not performed simply to produce a different-looking robot.
+
+The mechanical layout constrained:
+
+- camera location;
+- camera viewing angle;
+- usable field of view;
+- ToF mounting;
+- wiring;
+- obstacle clearance;
+- serviceability.
+
+The final design therefore changed the chassis and mounting architecture to support the desired sensing system.
+
+This demonstrates an important design dependency:
+
+```text
+Perception requirement
+        ↓
+Sensor geometry
+        ↓
+Mount geometry
+        ↓
+Chassis requirement
+        ↓
+Mechanical redesign
+```
+
+Software requirements therefore directly influenced the mechanical architecture.
+
+---
+
+### D25 — Modular Software Architecture
+
+The robot uses separate modules for functions such as:
+
+```text
+drive
+encoder
+vision
+heading
+ToF sensing
+parking
+challenge control
+```
+
+instead of placing every operation inside one large script.
+
+**Reasoning:**
+
+If a complete run fails, a monolithic architecture makes it difficult to determine whether the problem originated from:
+
+- motor control;
+- steering;
+- sensing;
+- perception;
+- heading;
+- parking logic;
+- high-level state control.
+
+With modular software, individual components can be tested before integration.
+
+```text
+Component test
+      ↓
+Verify subsystem
+      ↓
+Integrate
+      ↓
+Challenge test
+```
+
+The trade-off is additional interface management between modules, but the improvement in debugging and reuse justified that complexity.
+
+---
+
+## Examples of Rejected or Replaced Approaches
+
+Engineering decisions are also visible through approaches that were deliberately **not** retained.
+
+| Rejected / Replaced Approach | Reason It Was Not Retained |
+| --- | --- |
+| Aggressive speed-increasing drivetrain gearing | Reduced torque and reliability margin |
+| Purely time-based precision movement | Sensitive to changing physical conditions |
+| Large unrestricted steering corrections | Risk of mechanical stress |
+| Threshold-only solution to poor camera geometry | Software could not compensate for missing visual information |
+| Whole-frame or overly broad colour detection | Increased irrelevant detections |
+| Immediate action from one visual cue | Created premature state transitions |
+| Parking based mainly on vision and timing | Did not directly measure physical distance |
+| One distance sample as a parking trigger | Susceptible to transient readings |
+| Identical CW and ACW parking entry | Different physical approach geometry |
+| Full-system-only debugging | Difficult to isolate the originating failure |
+| Retaining Nationals architecture through tuning alone | Some limitations required architectural changes |
+
+---
+
+## Decision Priorities
+
+When several technically valid options were available, Starlight's design choices generally prioritized:
+
+1. **Reliable completion**
+2. **Mechanical safety**
+3. **Repeatability**
+4. **Useful sensor geometry**
+5. **Controllability**
+6. **Failure isolation**
+7. **Ease of calibration**
+8. **Speed**
+
+This does **not** mean speed was unimportant.
+
+It means that speed was optimized only after the system could reliably:
+
+```text
+Sense → Decide → Move → Verify
+```
+
+---
+
+## How Decisions Are Accepted
+
+A design change is not considered justified solely because it appears theoretically better.
+
+Where practical, the workflow is:
+
+```text
+Identify limitation
+       ↓
+State proposed change
+       ↓
+Identify expected benefit
+       ↓
+Identify trade-off / new risk
+       ↓
+Prototype
+       ↓
+Subsystem test
+       ↓
+Integrated test
+       ↓
+Compare against previous behaviour
+       ↓
+Retain / Modify / Reject
+```
+
+A decision may therefore be reversed later if new testing produces stronger evidence.
+
+---
+
+## Evidence Standard
+
+Entries in this log distinguish between:
+
+- **design reasoning**;
+- **observed behaviour**;
+- **physical testing**;
+- **retained architecture**.
+
+No reliability percentage is claimed unless the corresponding number of trials was actually recorded.
+
+A decision being retained in the final robot means that it produced a sufficient engineering advantage during development to justify its cost and constraints. It does not imply that alternative designs could never work.
+
+---
+
+## Related Repository Evidence
+
+Engineering decisions should be interpreted together with:
+
+```text
+docs/failure-log.md
+docs/testing.md
+```
+
+The three documents serve different purposes:
+
+| Document | Question Answered |
+| --- | --- |
+| `engineering-decisions.md` | **Why did we choose this design?** |
+| `failure-log.md` | **What failed, why, and what changed?** |
+| `testing.md` | **How was the change tested?** |
+
+Together they provide traceability from:
+
+```text
+Engineering requirement
+        ↓
+Design decision
+        ↓
+Implementation
+        ↓
+Observed failure
+        ↓
+Modification
+        ↓
+Testing
+        ↓
+Final retained architecture
+```
+
+---
+
+**Team Sentio 1747**  
+**Starlight | WRO Future Engineers 2026**
