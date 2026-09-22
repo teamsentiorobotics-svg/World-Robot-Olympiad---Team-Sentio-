@@ -1,0 +1,1168 @@
+# Starlight Drivetrain
+
+**Project:** Starlight  
+**Team:** Sentio 1747  
+**Competition:** WRO Future Engineers 2026  
+**Configuration:** Revision 27  
+**Subsystem:** Drivetrain, steering and motion feedback
+
+---
+
+## Overview
+
+Starlight uses a car-like drivetrain designed around **four-wheel drive, front Ackermann steering, a mechanical differential, 1:1 external gearing, and encoder-assisted motion feedback**.
+
+The drivetrain was developed to balance:
+
+- usable wheel torque;
+- controllable speed;
+- turning efficiency;
+- mechanical reliability;
+- repeatable movement;
+- obstacle clearance;
+- forward and reverse manoeuvring.
+
+The final drivetrain prioritizes **reliable and controllable motion over maximum theoretical speed**.
+
+---
+
+## Current Drivetrain Configuration
+
+| Parameter | Current Configuration |
+| --- | --- |
+| **Drive architecture** | Four-wheel drive |
+| **Drive motor** | 12 V geared DC encoder motor |
+| **Nominal gearbox-output speed** | 600 RPM |
+| **External gear ratio** | 1:1 |
+| **Steering system** | Front Ackermann steering |
+| **Steering actuator** | DS3225 servo |
+| **Differential** | Mechanical differential |
+| **Motion feedback** | Quadrature motor encoder |
+| **Wheel diameter** | 46 mm |
+| **Wheel radius** | 23 mm |
+| **Wheelbase** | 107.5 mm |
+| **Track width** | 110 mm |
+| **Primary drive control** | PWM + direction control |
+| **Motor driver** | TB6612FNG |
+| **Motor PWM pin** | GPIO13 |
+| **Motor direction pins** | GPIO5 / GPIO6 |
+| **Steering servo pin** | GPIO22 |
+
+---
+
+# Mechanical Power Path
+
+The drivetrain transfers rotation from a single geared motor to the four driven wheels.
+
+```text
+12 V geared DC motor
+        ↓
+Gearbox output shaft
+        ↓
+1:1 external gear transmission
+        ↓
+Mechanical drivetrain
+        ↓
+Differential / axle mechanisms
+        ↓
+Four driven wheels
+```
+
+The encoder is integrated with the drive motor and reports shaft movement to the controller.
+
+```text
+Motor rotation
+     ↓
+Encoder pulses
+     ↓
+Software count
+     ↓
+Estimated shaft movement
+     ↓
+Motion-control decision
+```
+
+---
+
+# Why Four-Wheel Drive?
+
+Starlight drives all four wheels.
+
+The purpose is not to claim that four driven wheels somehow create four times the available grip. Physics, as usual, refuses to be impressed by marketing.
+
+Instead, 4WD allows propulsion to be distributed across multiple tire contact patches.
+
+Potential advantages include:
+
+- reduced dependence on one driven axle;
+- better use of available traction;
+- more stable propulsion during turns;
+- improved ability to overcome drivetrain resistance;
+- more consistent movement during forward and reverse manoeuvres.
+
+The exact torque split between individual wheels was not directly instrumented, so no unsupported percentage is claimed.
+
+---
+
+## Traction Principle
+
+The total longitudinal force is distributed among the tire contact patches:
+
+$$
+F_x = \sum_{i=1}^{4} F_{x,i}
+$$
+
+Each tire still has a limited friction capability.
+
+A simplified tire constraint is:
+
+$$
+\sqrt{F_{x,i}^2 + F_{y,i}^2} \leq \mu_i N_i
+$$
+
+where:
+
+- $F_{x,i}$ = driving force at tire $i$;
+- $F_{y,i}$ = lateral turning force;
+- $\mu_i$ = available friction coefficient;
+- $N_i$ = normal force on that tire.
+
+The same tire therefore has to share available grip between **driving and turning**.
+
+---
+
+# Current Motor
+
+The current drivetrain uses a:
+
+```text
+12 V
+600 RPM
+geared DC motor
+with quadrature encoder
+```
+
+The nominal **600 RPM** value refers to gearbox-output shaft speed under the motor's stated rating conditions.
+
+It is **not** a measured competition-track speed.
+
+Real vehicle motion is affected by:
+
+- motor load;
+- battery voltage;
+- drivetrain friction;
+- tire deformation;
+- wheel slip;
+- turning resistance;
+- surface condition.
+
+---
+
+# Why the Motor Was Changed
+
+An earlier drivetrain configuration experienced a motor stall under heavy loading.
+
+The failure chain demonstrated that a mechanical problem could propagate into the electrical system:
+
+```text
+High drivetrain load
+        ↓
+Motor stall
+        ↓
+Large electrical stress
+        ↓
+Motor-driver damage
+        ↓
+Motor / drivetrain redesign
+```
+
+The response was not simply to replace the damaged component.
+
+The team reconsidered:
+
+- motor speed;
+- available torque;
+- external gearing;
+- drivetrain load;
+- testing procedure;
+- acceptable speed margin.
+
+The retained configuration uses the **600 RPM geared encoder motor** with **1:1 external gearing**.
+
+---
+
+# External Gear Ratio
+
+The current external drivetrain ratio is:
+
+$$
+G = 1
+$$
+
+or:
+
+```text
+1 : 1
+```
+
+This means that ideally:
+
+```text
+1 gearbox-output revolution
+            ↓
+1 transmission revolution
+```
+
+The gears transfer motion without intentionally increasing the nominal rotational speed.
+
+---
+
+## Earlier Configuration
+
+An earlier drivetrain used a speed-increasing ratio:
+
+$$
+G = \frac{36}{24} = 1.5
+$$
+
+Conceptually:
+
+```text
+36T driving gear
+       ↓
+24T driven gear
+       ↓
+1.5× ideal speed increase
+```
+
+That configuration increased ideal output speed but reduced available torque at the wheel transmission.
+
+The final design moved away from this approach.
+
+---
+
+# Why 1:1 Was Selected
+
+Changing from the earlier:
+
+```text
+1.5 : 1 speed-increasing ratio
+```
+
+to:
+
+```text
+1 : 1
+```
+
+trades some theoretical maximum speed for greater available torque.
+
+For the same motor torque and assumed drivetrain efficiency:
+
+$$
+\tau_{wheel} \propto \frac{1}{G}
+$$
+
+Moving from:
+
+$$
+G = 1.5
+$$
+
+to:
+
+$$
+G = 1
+$$
+
+provides approximately:
+
+```text
+50% more ideal wheel torque
+```
+
+while reducing ideal wheel speed by:
+
+```text
+33.3%
+```
+
+relative to the 1.5 ratio.
+
+The design therefore prioritizes:
+
+```text
+Torque
+Reliability
+Control margin
+Repeatability
+```
+
+over:
+
+```text
+Maximum theoretical speed
+```
+
+---
+
+# Ideal Wheel Speed
+
+With:
+
+```text
+Motor speed = 600 RPM
+Gear ratio  = 1:1
+Wheel diameter = 46 mm
+```
+
+the ideal wheel rotational speed is:
+
+$$
+n_w = G n_m
+$$
+
+Therefore:
+
+$$
+n_w = 1 \times 600
+$$
+
+$$
+n_w = 600\text{ RPM}
+$$
+
+---
+
+## Ideal Linear Speed
+
+Wheel circumference is:
+
+$$
+C = \pi D
+$$
+
+Using:
+
+$$
+D = 0.046\text{ m}
+$$
+
+the ideal no-slip linear speed is:
+
+$$
+v = \frac{\pi D n_w}{60}
+$$
+
+Therefore:
+
+$$
+v =
+\frac{\pi(0.046)(600)}{60}
+$$
+
+$$
+v \approx 1.445\text{ m/s}
+$$
+
+So:
+
+```text
+Ideal no-slip speed ≈ 1.445 m/s
+```
+
+> [!IMPORTANT]
+> This is a **calculated ideal conversion**, not a measured competition speed.
+>
+> Actual speed is lower or different depending on load, losses, wheel slip and control behaviour.
+
+---
+
+# Current vs Earlier Gearing
+
+| Configuration | Wheel RPM | Ideal Linear Speed |
+| --- | ---: | ---: |
+| **Current 1:1, 600 RPM motor** | 600 RPM | **1.445 m/s** |
+| Earlier practical comparison | 800 RPM | 1.927 m/s |
+| Earlier 1.5 ratio with 600 RPM motor | 900 RPM | 2.168 m/s |
+
+The earlier system produced a higher ideal speed, but the current system gives greater mechanical margin.
+
+---
+
+# Force and Torque Model
+
+A simplified drivetrain load model is:
+
+$$
+F =
+ma +
+C_{rr}mg +
+mg\sin\theta
+$$
+
+where:
+
+- $m$ = vehicle mass;
+- $a$ = acceleration;
+- $C_{rr}$ = assumed rolling-resistance coefficient;
+- $g$ = gravitational acceleration;
+- $\theta$ = slope angle.
+
+Required wheel torque is:
+
+$$
+\tau_w = Fr
+$$
+
+where:
+
+$$
+r = 0.023\text{ m}
+$$
+
+for the current 46 mm wheel.
+
+A simplified required motor torque relation is:
+
+$$
+\tau_m = \frac{GFr}{\eta}
+$$
+
+where:
+
+- $G$ = external gearing ratio;
+- $\eta$ = assumed drivetrain efficiency.
+
+---
+
+## Effect of the Current Ratio
+
+For the same required wheel force:
+
+```text
+G = 1
+```
+
+requires less motor torque than:
+
+```text
+G = 1.5
+```
+
+in the retained comparison model.
+
+The current 1:1 gearing therefore moves the motor operating point away from the more demanding speed-increasing arrangement.
+
+---
+
+# Ackermann Steering
+
+Starlight does not use differential steering to change direction.
+
+Instead, it uses:
+
+```text
+Front Ackermann steering
+```
+
+similar to a conventional road vehicle.
+
+During a turn:
+
+```text
+Inside front wheel
+        ↓
+Sharper steering angle
+
+Outside front wheel
+        ↓
+Smaller steering angle
+```
+
+because the two wheels follow different-radius paths.
+
+---
+
+## Why Different Angles Are Required
+
+The inner wheel follows a smaller circle.
+
+The outer wheel follows a larger circle.
+
+```text
+              OUTSIDE PATH
+         ─────────────────────
+       /                        \
+      /                          \
+     /     INSIDE PATH            \
+    /     ─────────────             \
+   /                                  \
+          VEHICLE
+```
+
+If both front wheels were forced to the same steering angle, one or both tires would have to scrub sideways more strongly.
+
+Ackermann geometry reduces that conflict.
+
+---
+
+# Ackermann Geometry
+
+For an ideal low-slip turn:
+
+$$
+\tan\delta_{in}
+=
+\frac{L}{R-T/2}
+$$
+
+and:
+
+$$
+\tan\delta_{out}
+=
+\frac{L}{R+T/2}
+$$
+
+where:
+
+- $L$ = wheelbase;
+- $T$ = track width;
+- $R$ = turn radius measured to the rear-axle midpoint;
+- $\delta_{in}$ = inside wheel angle;
+- $\delta_{out}$ = outside wheel angle.
+
+For Starlight:
+
+$$
+L = 0.1075\text{ m}
+$$
+
+$$
+T = 0.110\text{ m}
+$$
+
+For an illustrative:
+
+$$
+R = 0.300\text{ m}
+$$
+
+the ideal geometry gives approximately:
+
+```text
+Inner wheel angle ≈ 23.69°
+Outer wheel angle ≈ 16.85°
+```
+
+These are **calculated road-wheel angles**, not servo command values.
+
+---
+
+# Servo Command vs Wheel Angle
+
+A servo value such as:
+
+```text
+75
+```
+
+does **not** mean:
+
+```text
+75° road-wheel angle
+```
+
+The servo first moves:
+
+```text
+Servo horn
+    ↓
+Steering linkage
+    ↓
+Steering arms
+    ↓
+Wheel hubs
+    ↓
+Actual road-wheel angle
+```
+
+The mechanical geometry converts servo movement into wheel movement.
+
+For this reason:
+
+```text
+Servo command ≠ wheel steering angle
+```
+
+Steering behaviour must be checked physically.
+
+---
+
+# Mechanical Differential
+
+Steering and differential action solve **different problems**.
+
+Ackermann steering controls:
+
+```text
+Wheel direction
+```
+
+The mechanical differential controls:
+
+```text
+Relative driven-wheel speed
+```
+
+During a turn, the outer driven wheel travels farther than the inner driven wheel.
+
+---
+
+## Different Wheel Paths
+
+For a turn of radius $R$:
+
+$$
+v_{in} = \omega(R-T/2)
+$$
+
+$$
+v_{out} = \omega(R+T/2)
+$$
+
+Therefore:
+
+$$
+\frac{v_{out}}{v_{in}}
+=
+\frac{R+T/2}{R-T/2}
+$$
+
+With:
+
+$$
+R = 0.300\text{ m}
+$$
+
+and:
+
+$$
+T = 0.110\text{ m}
+$$
+
+the outer path is approximately:
+
+```text
+1.449×
+```
+
+the inner path.
+
+Without differential action, the drivetrain would have to accommodate this difference through:
+
+- tire slip;
+- drivetrain compliance;
+- mechanical stress;
+- or some combination of the three.
+
+The differential allows the left and right driven sides to rotate at different speeds while still receiving propulsion.
+
+---
+
+# Steering and Differential Together
+
+The two mechanisms complement each other.
+
+| Mechanism | Main Function |
+| --- | --- |
+| **Ackermann steering** | Points front wheels along different-radius paths |
+| **Mechanical differential** | Allows driven wheels to rotate at different speeds |
+
+Together:
+
+```text
+Ackermann
+    ↓
+Correct wheel direction
+
+Differential
+    ↓
+Compatible wheel speed
+
+Combined
+    ↓
+Lower mechanical conflict during turning
+```
+
+---
+
+# Quadrature Encoder
+
+The current motor includes a quadrature encoder.
+
+The encoder reports:
+
+```text
+Rotation
++
+Direction
+```
+
+through pulse transitions.
+
+The drive software can use the count to control movement based on shaft rotation instead of depending only on elapsed time.
+
+---
+
+## Why Encoder Feedback Was Added
+
+A command such as:
+
+```text
+Drive for 1.0 second
+```
+
+does not guarantee the same travel distance every run.
+
+Movement can vary with:
+
+- battery voltage;
+- motor load;
+- floor grip;
+- drivetrain friction;
+- initial velocity;
+- tire slip.
+
+Encoder-assisted movement instead follows:
+
+```text
+Set target count
+       ↓
+Reset / read encoder
+       ↓
+Drive motor
+       ↓
+Monitor count
+       ↓
+Target reached?
+   ↙          ↘
+ No           Yes
+ ↓             ↓
+Continue       Stop
+```
+
+---
+
+# What the Encoder Does Not Measure
+
+The encoder measures:
+
+```text
+motor / shaft rotation
+```
+
+It does not directly measure:
+
+```text
+robot position on the field
+```
+
+For example:
+
+```text
+Wheel rotates
+      ↓
+Encoder count increases
+```
+
+even if some motion is lost through:
+
+- tire slip;
+- mechanical compliance;
+- drivetrain backlash.
+
+Encoder control therefore improves repeatability but does not convert the robot into a perfect odometry system.
+
+---
+
+# Drivetrain Control
+
+The drive subsystem accepts commands from the higher-level navigation software.
+
+Conceptually:
+
+```text
+Vision / state controller
+        ↓
+Desired steering + movement
+        ↓
+Drive module
+        ↓
+Motor PWM + direction
+        ↓
+Servo command
+        ↓
+Physical drivetrain
+        ↓
+Encoder feedback
+```
+
+The low-level drive layer is also responsible for preventing software commands from exceeding useful mechanical steering limits.
+
+---
+
+# Steering Limits
+
+The steering servo is constrained to a usable mechanical range.
+
+The purpose of software clamping is to prevent:
+
+```text
+Large controller correction
+        ↓
+Excessive servo travel
+        ↓
+Steering linkage stress
+        ↓
+Disconnection / binding
+```
+
+Instead:
+
+```text
+Requested steering value
+        ↓
+Check allowed limits
+        ↓
+Clamp if necessary
+        ↓
+Send safe command
+```
+
+Mechanical limits therefore form part of the control architecture rather than being left entirely to higher-level navigation code.
+
+---
+
+# Forward and Reverse Operation
+
+The drivetrain supports:
+
+```text
+Forward propulsion
+Reverse propulsion
+Left steering
+Right steering
+```
+
+This is particularly important during parking.
+
+Because Starlight uses Ackermann steering, it cannot rotate around its centre like a skid-steer robot.
+
+Parking therefore uses controlled:
+
+```text
+Forward arcs
++
+Reverse arcs
+```
+
+rather than an in-place rotation.
+
+---
+
+# Why Ackermann Was Retained
+
+Ackermann steering adds mechanical complexity compared with skid steering.
+
+However, it provides a vehicle-like motion model suitable for the Future Engineers challenge.
+
+### Advantages
+
+- reduced tire scrub compared with forcing identical front-wheel angles;
+- predictable forward and reverse arcs;
+- realistic vehicle steering;
+- compatible with controlled parking manoeuvres;
+- separates steering from propulsion.
+
+### Costs
+
+- additional steering linkage;
+- mechanical alignment requirements;
+- servo calibration;
+- finite turning radius;
+- cannot rotate in place;
+- more complex parking geometry.
+
+The design retained Ackermann because its advantages matched the intended vehicle architecture.
+
+---
+
+# Drivetrain Design Evolution
+
+The drivetrain was not fixed from the first prototype.
+
+```text
+Early drivetrain
+      ↓
+Higher-speed configuration
+      ↓
+High load / stall behaviour
+      ↓
+Motor and driver failure evidence
+      ↓
+Re-evaluate gearing and motor
+      ↓
+600 RPM encoder motor
+      ↓
+1:1 external gearing
+      ↓
+Encoder-assisted movement
+      ↓
+Current Rev27 drivetrain
+```
+
+---
+
+## Major Changes
+
+| Area | Earlier Approach | Current Approach | Reason |
+| --- | --- | --- | --- |
+| **Motor** | Earlier higher-speed motor | 600 RPM geared encoder motor | Greater operating margin and feedback |
+| **External gearing** | 1.5× speed increase | **1:1** | Greater available wheel torque |
+| **Movement control** | Mainly timing-based | Encoder-assisted where useful | Better repeatability |
+| **Steering protection** | Larger unrestricted corrections | Bounded steering | Reduce linkage stress |
+| **Testing** | Full-run diagnosis | Component + integrated testing | Isolate failures faster |
+
+---
+
+# Engineering Trade-Off
+
+The drivetrain decision can be summarized as:
+
+```text
+Earlier priority
+     ↓
+Higher theoretical speed
+
+Current priority
+     ↓
+Torque
+Reliability
+Control
+Feedback
+Repeatability
+```
+
+The current drivetrain deliberately gives up some theoretical maximum speed.
+
+That is not considered a loss if the resulting vehicle:
+
+- accelerates reliably;
+- turns predictably;
+- avoids motor stalls;
+- performs parking manoeuvres;
+- completes the course consistently.
+
+---
+
+# Failure-Driven Redesign
+
+One of the most important drivetrain lessons came from the earlier stall.
+
+```text
+Mechanical overload
+        ↓
+Motor stall
+        ↓
+Electrical stress
+        ↓
+Driver damage
+```
+
+This demonstrated that drivetrain design cannot be isolated from electronics.
+
+A mechanical decision affects:
+
+```text
+Motor current
+      ↓
+Motor-driver stress
+      ↓
+Power system
+      ↓
+Computer stability
+      ↓
+Navigation reliability
+```
+
+The drivetrain was therefore treated as part of the complete vehicle system.
+
+---
+
+# Component Testing
+
+Before a complete autonomous run, drivetrain checks should include:
+
+## Mechanical
+
+- [ ] Wheels rotate freely
+- [ ] Gear mesh is correct
+- [ ] Shafts remain aligned
+- [ ] Differential moves freely
+- [ ] No gear disengagement
+- [ ] Steering linkage does not bind
+- [ ] Full steering range has physical clearance
+
+## Motor
+
+- [ ] Forward direction is correct
+- [ ] Reverse direction is correct
+- [ ] Motor runs without abnormal noise
+- [ ] Motor does not stall under normal movement
+- [ ] PWM response is predictable
+
+## Steering
+
+- [ ] Center command produces straight wheels
+- [ ] Left command produces left steering
+- [ ] Right command produces right steering
+- [ ] Mechanical steering limits are respected
+- [ ] Linkage remains connected throughout travel
+
+## Encoder
+
+- [ ] Encoder pulses are detected
+- [ ] Direction sign is correct
+- [ ] Counts increase consistently
+- [ ] Movement target stops correctly
+- [ ] Encoder-controlled motion is physically repeatable
+
+---
+
+# Debugging Order
+
+If the robot moves incorrectly:
+
+```text
+1. Check wheel / gear freedom
+2. Check motor direction
+3. Check gear engagement
+4. Check differential
+5. Check steering centre
+6. Check steering limits
+7. Check encoder direction
+8. Run low-speed encoder movement
+9. Integrate with navigation controller
+10. Run complete challenge
+```
+
+Changing vision gains because a gear is binding would be an admirably creative but unproductive debugging strategy.
+
+---
+
+# Evidence Classification
+
+This drivetrain document separates different kinds of engineering evidence.
+
+| Evidence Type | Example |
+| --- | --- |
+| **Specification** | Motor nominal speed = 600 RPM |
+| **Recorded geometry** | Wheel diameter = 46 mm |
+| **Design configuration** | External gear ratio = 1:1 |
+| **Calculation** | Ideal no-slip speed = 1.445 m/s |
+| **Observation** | Earlier drivetrain experienced a stall |
+| **Engineering decision** | Replace speed-increasing gearing with 1:1 |
+| **Feedback measurement** | Encoder shaft counts |
+
+Calculated values should not be presented as physical measurements.
+
+---
+
+# Important Limits
+
+The following statements should **not** be inferred from this drivetrain description:
+
+- 600 RPM does not mean the wheels always rotate at exactly 600 RPM.
+- 1.445 m/s is not a measured competition speed.
+- Encoder movement does not guarantee zero wheel slip.
+- Ackermann equations do not prove that the real linkage exactly follows ideal geometry.
+- Four-wheel drive does not create four times the available traction.
+- A successful drivetrain test does not establish a statistical failure probability.
+
+The documentation intentionally separates ideal calculations from observed physical performance.
+
+---
+
+# Current Design Summary
+
+```text
+                    STARLIGHT DRIVETRAIN
+
+                 12 V / 600 RPM MOTOR
+                         │
+                  QUADRATURE ENCODER
+                         │
+                         ▼
+                   1 : 1 GEARING
+                         │
+                         ▼
+               MECHANICAL TRANSMISSION
+                         │
+                  ┌──────┴──────┐
+                  │ DIFFERENTIAL│
+                  └──────┬──────┘
+                         │
+                  FOUR DRIVEN WHEELS
+
+FRONT STEERING:
+DS3225 SERVO
+      │
+      ▼
+ACKERMANN LINKAGE
+      │
+      ├── INSIDE WHEEL: LARGER ANGLE
+      └── OUTSIDE WHEEL: SMALLER ANGLE
+```
+
+The final architecture combines:
+
+**4WD + 1:1 gearing + 600 RPM encoder motor + mechanical differential + Ackermann steering**
+
+to produce a drivetrain optimized for **controlled, repeatable and reliable autonomous movement**.
+
+---
+
+# Related Documentation
+
+| Document | Purpose |
+| --- | --- |
+| [`../engineering-decisions.md`](../engineering-decisions.md) | Why the drivetrain architecture was selected |
+| [`../failure-log.md`](../failure-log.md) | Motor stall, drivetrain failures and corrective actions |
+| [`../testing.md`](../testing.md) | Physical drivetrain, encoder and steering tests |
+| [`wiring-guide.md`](wiring-guide.md) | Motor-driver, servo and encoder wiring |
+| [`bom.md`](bom.md) | Hardware and component information |
+| [`../../src/drive.py`](../../src/drive.py) | Low-level propulsion and steering control |
+| [`../../src/encoder_test.py`](../../src/encoder_test.py) | Encoder verification |
+| [`../../src/servo_test.py`](../../src/servo_test.py) | Steering verification |
+
+---
+
+## Revision Note
+
+The current **Revision 27 drivetrain uses 1:1 external gearing**.
+
+Earlier documentation describing:
+
+```text
+36T → 24T
+G = 1.5
+```
+
+represents a **historical drivetrain configuration** and must not be interpreted as the current competition setup.
+
+---
+
+**Team Sentio 1747**  
+**Starlight | WRO Future Engineers 2026**
