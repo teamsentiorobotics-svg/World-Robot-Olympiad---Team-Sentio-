@@ -1,700 +1,973 @@
-# Parts & Purchase Links — Team Sentio / Starlight
+# Starlight Bill of Materials
 
-## APOC 2026 Competition Configuration
+**Team:** Sentio 1747  
+**Robot:** Starlight  
+**Competition:** WRO Future Engineers 2026  
+**Configuration:** APOC / Revision 27  
+**Last updated:** 22 September 2026
 
-Complete hardware, sourcing, interface and spares reference for **Starlight**, Team Sentio's WRO Future Engineers robot.
+---
 
-> **Configuration status:** This document describes the upgraded **APOC 2026 competition configuration**. It replaces the earlier JGB37-520 drivetrain entry with the **Rhino GB37 12 V 1000 RPM geared encoder motor**, adds **two VL53L0X Time-of-Flight sensors**, and makes the integrated quadrature encoder part of the final sensing/control architecture.
+## Configuration Status
+
+This document describes the **current physical Starlight configuration** used after the post-Nationals redesign.
+
+The authoritative current configuration is:
+
+```text
+COMPUTE      : Raspberry Pi 5, 4 GB
+VISION       : 2 × Raspberry Pi Camera Module 3 Wide
+RANGE        : 3 × VL53L0X Time-of-Flight sensors
+ORIENTATION  : MPU6050-based heading sensor
+DRIVE MOTOR  : 12 V geared DC encoder motor, nominal 600 RPM
+ENCODER      : integrated quadrature encoder
+STEERING     : DS3225 servo + Ackermann linkage
+DRIVER       : TB6612FNG
+BATTERY      : 3S LiPo, 11.1 V, 2200 mAh
+DRIVE        : mechanical 4WD
+DIFFERENTIAL : mechanical differential
+GEAR STAGE   : 1:1 external gearing
+START SYSTEM : one main power switch + one Start button
+CHASSIS      : custom printed structure + LEGO Technic mechanisms
+```
+
+> [!IMPORTANT]
+> Earlier references to a **1000 RPM Rhino motor**, **two ToF sensors**, **325 encoder counts per output revolution**, or a **36T → 24T current drivetrain ratio** are historical development information.
 >
-> **Important:** A competition BOM is only useful if it matches the robot actually on the table. Any change to the motor, gearing, wheel diameter, camera pose, ToF mounting, steering linkage or power rail can require software and calibration changes. Freeze the mechanical/electrical configuration before the event and update this file if the physical robot changes.
-
-### APOC upgrade summary
-
-| Upgrade | APOC configuration | Why it matters |
-|---|---|---|
-| **Drive motor** | Rhino GB37 12 V 1000 RPM 0.7 kg-cm geared encoder servo motor, RMCS-4091 | Higher-speed drivetrain with integrated feedback capability |
-| **Motor feedback** | Integrated quadrature encoder, 325 counts/rev at output shaft | Enables measured speed/distance, repeatability checks and closed-loop speed control |
-| **Distance sensing** | 2 × VL53L0X ToF sensors | Adds direct short-range distance feedback for wall/parking/reverse manoeuvres instead of relying only on camera geometry |
-| **Sensor fusion** | Cameras + dual ToF + IMU + encoder | Gives complementary field geometry, range, heading and drivetrain-motion information |
-| **Competition controls** | 1 power switch + 1 start push button | Matches the 2026 Future Engineers start procedure |
-| **Event reliability** | Dedicated spares pack + pre-round electrical checklist | Reduces the chance that one cable, sensor or motor ends the event for reasons too boring to deserve a trophy |
+> They do **not** describe the current Revision 27 robot.
 
 ---
 
-# 1. Final Competition Robot — Core Electronics
+# 1. Current Competition Robot
 
-These are the permanent electronic components of the APOC Starlight configuration.
+## Core Electronics and Motion Hardware
 
-| Qty. | Component | Final role on Starlight | Purchase link / source |
-|---:|---|---|---|
-| 1 | **Raspberry Pi 5 — 4 GB** | Main computer; runs Picamera2, OpenCV, sensor fusion, challenge logic, GPIO and control software | [Robu.in](https://robu.in/product/raspberry-pi-5-model-4gb/) |
-| 2 | **Raspberry Pi Camera Module 3 Wide** | Front field perception + rear parking geometry | [Robu.in](https://robu.in/product/raspberry-pi-camera-module-3-wide/) |
-| 2 | **VL53L0X Time-of-Flight distance sensor breakout** | Independent short-range ranging channels for parking / wall / reverse-distance logic | [Robokits India — Tiny LiDAR VL53L0X](https://robokits.co.in/sensors/lidar-laser-rangefinders/tiny-lidar-laser-ranging-sensor-tof-based-on-vl53l0x-2-meters-range) |
-| 1 | **DS3225 25 kg-cm metal-gear digital servo, 180°** | Ackermann steering actuation | [Robu.in](https://robu.in/product/pro-range-ds3225-25kgcm-metal-gear-digital-servo-motor-180-degree/) |
-| 1 | **TB6612FNG motor-driver module** | Drive-motor direction and PWM speed control | [Robu.in](https://robu.in/product/motor-driver-tb6612fng-module-performance-ultra-small-volume-3-pi-matching-performance-ultra-l298n/) |
-| 1 | **Rhino GB37 12 V 1000 RPM 0.7 kg-cm DC geared encoder servo motor — RMCS-4091** | Main drivetrain motor; replaces the earlier JGB37-520 | [Robokits India](https://robokits.co.in/motors/rhino-gb37-12v-dc-geared-motor/dc-12v-encoder-servo-motors/rhino-gb37-12v-1000rpm-0.7kgcm-dc-geared-encoder-servo-motor) |
-| 1 | **Integrated quadrature motor encoder** | Measures motor/output-shaft motion for velocity, travelled-distance and control feedback | **Included in RMCS-4091 motor; no separate encoder purchase required** |
-| 1 | **MPU6050-based 10DOF module** | Heading/orientation reference for heading-sensitive obstacle and parking manoeuvres | [Robu.in](https://robu.in/product/mpu6050hmc5883lbmp180-10dof-3-axis-gyro-3-axis-acceleration-3-axis-magnetic-field-air-pres/) |
-| 1 | **MicroSD card** | Raspberry Pi OS, source code, calibration and runtime files | [Amazon.in](https://www.amazon.in/gp/product/B08L5HMJVW) |
-| 1 | **Main power switch** | The single competition power-on switch | Source locally; choose a mechanically secure part with adequate current rating |
-| 1 | **Momentary start push button** | Starts the run from the powered-on waiting state | Source locally; wire as the single Start button used by competition software |
-| 1 | **Status / illumination LED** | Controlled visual status and/or front illumination where used | Source locally / retain current installed LED |
-
-### Core-electronics notes
-
-- The **Rhino RMCS-4091 already contains the encoder**. Do not add an unrelated external rotary encoder unless there is a separate measured need.
-- Keep the **Micro-HDMI cable, monitor, keyboard and mouse out of the competition-payload list**. They are development tools, not permanent robot hardware.
-- The **TB6612FNG is retained from the existing architecture**, but the final build should be verified under real acceleration/load conditions with the new motor. Measure current draw and confirm the driver remains within a safe operating margin before freezing the APOC configuration.
+| Qty. | Component | Current role on Starlight | Purchase link / source |
+| ---: | --- | --- | --- |
+| 1 | **Raspberry Pi 5, 4 GB** | Main computer running vision, sensor interfaces, challenge logic and control | [Robu.in](https://robu.in/product/raspberry-pi-5-model-4gb/) |
+| 2 | **Raspberry Pi Camera Module 3 Wide** | Track, obstacle and parking perception | [Robu.in](https://robu.in/product/raspberry-pi-camera-module-3-wide/) |
+| 3 | **VL53L0X Time-of-Flight distance sensor breakout** | Short-range physical gap measurement during parking and wall-relative movement | [Robokits India](https://robokits.co.in/sensors/lidar-laser-rangefinders/tiny-lidar-laser-ranging-sensor-tof-based-on-vl53l0x-2-meters-range) |
+| 1 | **12 V geared DC encoder motor, nominal 600 RPM** | Main drivetrain motor | **Current installed motor. Exact SKU / purchase URL should be confirmed from the physical motor before final hardware freeze.** |
+| 1 | **Integrated quadrature encoder** | Reports drive-motor shaft rotation and direction | Integrated into current 600 RPM motor |
+| 1 | **TB6612FNG motor-driver module** | Motor direction and PWM control | [Robu.in](https://robu.in/product/motor-driver-tb6612fng-module-performance-ultra-small-volume-3-pi-matching-performance-ultra-l298n/) |
+| 1 | **DS3225 25 kg-cm digital servo, 180°** | Front Ackermann steering | [Robu.in](https://robu.in/product/pro-range-ds3225-25kgcm-metal-gear-digital-servo-motor-180-degree/) |
+| 1 | **MPU6050-based 10DOF module** | Gyro input for relative-heading estimation | [Robu.in](https://robu.in/product/mpu6050hmc5883lbmp180-10dof-3-axis-gyro-3-axis-acceleration-3-axis-magnetic-field-air-pres/) |
+| 1 | **MicroSD card** | Raspberry Pi OS, code and calibration files | [Amazon.in](https://www.amazon.in/gp/product/B08L5HMJVW) |
+| 1 | **Main power switch** | Isolates complete vehicle power | Source locally |
+| 1 | **Momentary Start push button** | Starts autonomous operation after initialization | Source locally |
+| 1 | **Status / illumination LED** | Status indication and/or illumination where retained | Source locally |
 
 ---
 
-# 2. New Drive Motor + Encoder — RMCS-4091
+## Current vs Historical Hardware
 
-The APOC drivetrain motor is now:
+| Item | Current Rev27 | Historical / superseded |
+| --- | --- | --- |
+| Drive motor | **600 RPM geared encoder motor** | Rhino GB37 RMCS-4091 / 1000 RPM reference |
+| External gearing | **1:1** | 36T → 24T, ratio 1.5 |
+| ToF sensors | **3 × VL53L0X** | 2 × VL53L0X |
+| Encoder calibration | **Installed encoder must be calibrated** | 325 counts/output revolution worked example |
+| Parking sensing | **Camera + IMU + 3 ToF + movement feedback** | Camera + IMU / dual-ToF development architecture |
 
-**Rhino GB37 12 V 1000 RPM 0.7 kg-cm DC Geared Encoder Servo Motor — Model RMCS-4091**
+---
 
-Purchase link:  
-[Robokits India — RMCS-4091](https://robokits.co.in/motors/rhino-gb37-12v-dc-geared-motor/dc-12v-encoder-servo-motors/rhino-gb37-12v-1000rpm-0.7kgcm-dc-geared-encoder-servo-motor)
+# 2. Current Drive Motor and Encoder
 
-## Published motor specifications
-
-| Parameter | Published value |
-|---|---:|
-| Rated voltage | **12 V** |
-| Base motor speed | **5800 RPM** |
-| No-load output speed | **950 RPM** |
-| Rated output speed | **928 RPM** |
-| Gear ratio | **1 : 6.25** |
-| Rated current | **300 mA** |
-| Rated power | **1.3 W** |
-| Rated torque | **0.17 kg-cm** |
-| Stall torque | **0.7 kg-cm** |
-| Output shaft | **6 mm D-shaft** |
-| Shaft length | **15 mm** |
-
-## Integrated encoder specifications
-
-| Parameter | Published value |
-|---|---:|
-| Encoder type | **Quadrature** |
-| PPR | **13** |
-| Quadrature CPR | **52 counts per motor-shaft revolution** |
-| Counts at output shaft | **325 counts per output-shaft revolution** |
-| Encoder supply | **5 V** |
-
-### Encoder wiring from the supplier listing
-
-| Wire | Function |
-|---|---|
-| Red | Motor + (M1) |
-| White | Motor − (M2) |
-| Yellow | Encoder channel C2 |
-| Green | Encoder channel C1 |
-| Blue | Encoder Vcc, 5 V |
-| Black | Ground |
-
-### APOC encoder integration requirements
-
-- Use **both quadrature channels** if direction as well as speed/distance is required.
-- Share a **clean common ground** between encoder electronics and the controller.
-- The encoder is powered from **5 V**. Do **not** assume its signal outputs are automatically safe for direct Raspberry Pi GPIO. Verify the actual C1/C2 high level on the installed motor and use a suitable level-shifting / conditioning stage if required.
-- Route encoder wires away from motor-power wiring where practical; brushed motor noise and long untwisted signal wires are a charming way to invent imaginary wheel motion.
-- Add software sanity checks for impossible count rates, no-count conditions while commanded to move, and count direction mismatch.
-
-### What the encoder should be used for
-
-The encoder should supplement, not replace, vision and IMU data. Useful control quantities include:
+The current competition drivetrain uses:
 
 ```text
-motor angular velocity
-relative travelled distance
-repeatable reverse distance
-acceleration / deceleration consistency
-stall or drivetrain-jam detection
-closed-loop speed correction
+12 V geared DC motor
+Nominal gearbox-output speed: 600 RPM
+Integrated quadrature encoder
+External drivetrain ratio: 1:1
 ```
 
-This is particularly valuable at APOC because the robot should behave consistently as battery voltage, floor grip and mechanical load vary.
+The motor provides propulsion while the encoder provides shaft-motion feedback.
 
 ---
 
-# 3. Dual VL53L0X Time-of-Flight Sensor System
+## Encoder Role
 
-Starlight now uses **two VL53L0X ToF sensors** as permanent competition sensors.
+The encoder supports:
 
-| Qty. | Sensor | Role | Purchase link |
-|---:|---|---|---|
-| 2 | **VL53L0X ToF breakout** | Direct distance measurement for close-range parking, reverse stopping and wall-relative logic | [Robokits India — Tiny LiDAR VL53L0X](https://robokits.co.in/sensors/lidar-laser-rangefinders/tiny-lidar-laser-ranging-sensor-tof-based-on-vl53l0x-2-meters-range) |
+- drive-response testing;
+- movement repeatability;
+- direction detection;
+- encoder-targeted movement;
+- stall or no-motion detection;
+- comparison of commanded and observed drivetrain movement.
 
-The referenced breakout is specified by the seller with an **I²C interface**, **1 mm resolution**, a stated **maximum range of 2 m**, and a **2.6–5.5 V input range** on the breakout board.
-
-## Critical two-sensor I²C note
-
-Two VL53L0X sensors cannot simply be powered up together at their default address and expected to behave politely. ST's multi-sensor application guidance uses each sensor's **XSHUT** input so the controller can bring the sensors online one at a time and assign unique I²C addresses.
-
-For the final harness, provide:
-
-- shared **SDA**;
-- shared **SCL**;
-- shared power and ground as appropriate for the chosen breakout;
-- **one separate XSHUT GPIO per ToF sensor**;
-- rigid mounts with repeatable sensor orientation;
-- labelled connectors so ToF #1 and ToF #2 cannot be silently swapped during a hurried repair.
-
-Recommended boot sequence:
+Conceptually:
 
 ```text
-1. Hold both VL53L0X sensors in shutdown.
-2. Enable ToF #1.
-3. Assign ToF #1 a unique I2C address.
-4. Enable ToF #2.
-5. Assign ToF #2 a second unique I2C address.
-6. Verify both sensors respond before enabling motion.
+Movement request
+      ↓
+Motor command
+      ↓
+Encoder pulses
+      ↓
+Count / direction
+      ↓
+Target reached?
+   ↙       ↘
+ No        Yes
+ ↓          ↓
+Continue    Stop
 ```
-
-Reference: STMicroelectronics application note **AN4846 — Using multiple VL53L0X in a single design**:  
-https://www.st.com/resource/en/application_note/an4846-using-multiple-vl53l0x-in-a-single-design-stmicroelectronics.pdf
-
-## ToF mechanical integration
-
-- Mount each sensor on a **rigid, non-flexing bracket**.
-- Keep the optical window unobstructed by chassis edges, wires or printed overhangs.
-- Record the sensor's pose relative to the chassis so the same mount can be reproduced after repairs.
-- Do not treat the advertised 2 m maximum as the control distance to use blindly. Final thresholds should be established on the actual APOC field materials, lighting and mounting geometry.
 
 ---
 
-# 4. Sensor-Fusion Architecture
+## Encoder Calibration Rule
 
-The upgraded robot is no longer just “camera + gyro + PWM.” The final architecture is:
+Do **not** document:
 
 ```text
-CAMERAS  = FIELD GEOMETRY + COLOUR / OBJECT PERCEPTION
-TOF x2   = DIRECT SHORT-RANGE DISTANCE
-IMU      = ORIENTATION / HEADING REFERENCE
-ENCODER  = DRIVETRAIN MOTION / SPEED / RELATIVE DISTANCE
-PI       = STATE FUSION + CHALLENGE LOGIC + CONTROL
-DRIVER   = MOTOR DIRECTION + PWM
-SERVO    = ACKERMANN STEERING ACTUATION
+325 counts/output revolution
 ```
 
-### Sensor roles
+as a specification of the current motor unless it has actually been measured or confirmed for the installed unit.
 
-| Sensor | Best use on Starlight | Do not rely on it alone for |
-|---|---|---|
-| Front camera | Walls, direction lines, red/green pillars, magenta parking cues and scene geometry | Exact short-range distance |
-| Rear camera | Reverse parking geometry and alignment | Encoder-level travelled distance |
-| VL53L0X #1 | Direct range measurement for a selected parking/wall reference | Global track interpretation |
-| VL53L0X #2 | Independent second range measurement, including reverse-distance logic | Heading estimation |
-| MPU6050 | Heading change and orientation reference | Absolute position on the field |
-| Motor encoder | Speed, relative motion and repeatability | Obstacle identity / lane geometry |
+That value belongs to the older 1000 RPM supplier example.
 
-The point is **complementarity**. If every sensor is being asked to solve the same problem, the robot has redundancy. If each sensor covers a weakness of the others, it has sensor fusion.
+The current installed encoder should instead be characterized using:
+
+```text
+src/encoder_test.py
+```
+
+Record:
+
+```text
+encoder counting mode
+edges counted per cycle
+count direction
+counts per gearbox-output revolution
+repeatability
+```
+
+before using a physical distance-per-count conversion.
 
 ---
 
-# 5. Power System
+## Encoder Electrical Interface
 
-Starlight separates the high-load motor/battery side from regulated low-voltage electronics rails.
+The encoder interface should provide:
+
+```text
+Channel 1
+Channel 2
+Encoder power
+Ground
+```
+
+The Raspberry Pi and encoder must share an appropriate signal reference.
+
+> [!CAUTION]
+> Encoder supply voltage alone does not prove that its output signal is safe for direct Raspberry Pi GPIO.
+>
+> Verify actual encoder output levels on the installed motor before connecting the signals directly.
+
+Route encoder signal wiring away from high-current motor wiring where practical.
+
+---
+
+# 3. Three VL53L0X Distance Sensors
+
+Starlight now uses:
+
+```text
+3 × VL53L0X
+```
+
+as permanent competition sensors.
+
+| Qty. | Sensor | Current role | Purchase link |
+| ---: | --- | --- | --- |
+| 3 | **VL53L0X ToF breakout** | Local distance measurement during parking, stopping and wall-relative movement | [Robokits India](https://robokits.co.in/sensors/lidar-laser-rangefinders/tiny-lidar-laser-ranging-sensor-tof-based-on-vl53l0x-2-meters-range) |
+
+These sensors complement the cameras rather than replacing visual perception.
+
+---
+
+## Why Three ToF Sensors?
+
+Each sensor provides information about a local physical gap.
+
+The architecture separates:
+
+```text
+CAMERA
+→ What feature is visible?
+
+IMU
+→ How much has the robot turned?
+
+ENCODER
+→ How much has the drivetrain moved?
+
+TOF
+→ How far away is the nearby physical surface?
+```
+
+The value of the sensor stack comes from these different measurements being used together.
+
+---
+
+# 4. Three-Sensor I2C Architecture
+
+VL53L0X sensors begin with the same default I2C address.
+
+Three sensors therefore cannot simply be enabled simultaneously and expected to identify themselves individually.
+
+Starlight uses dedicated **XSHUT** lines:
+
+| ToF | XSHUT GPIO |
+| --- | ---: |
+| **ToF 1** | GPIO16 |
+| **ToF 2** | GPIO20 |
+| **ToF 3** | GPIO21 |
+
+All three share the main I2C bus:
+
+```text
+SDA → GPIO2
+SCL → GPIO3
+```
+
+---
+
+## Startup Sequence
+
+```text
+Power on
+   ↓
+Hold ToF 1 OFF
+Hold ToF 2 OFF
+Hold ToF 3 OFF
+   ↓
+Enable ToF 1
+   ↓
+Assign unique I2C address
+   ↓
+Enable ToF 2
+   ↓
+Assign unique I2C address
+   ↓
+Enable ToF 3
+   ↓
+Assign unique I2C address
+   ↓
+Verify all three sensors
+   ↓
+Enter waiting state
+```
+
+The distance-sensor hardware test is:
+
+```text
+src/TUF_test.py
+```
+
+---
+
+## ToF Harness Requirements
+
+Provide:
+
+- shared SDA;
+- shared SCL;
+- appropriate shared supply;
+- common ground;
+- separate XSHUT line for each sensor;
+- labelled sensor connectors;
+- rigid sensor mounts;
+- repeatable sensor orientation.
+
+The software identifier and physical sensor must remain matched after repairs.
+
+---
+
+# 5. ToF Mechanical Integration
+
+Each VL53L0X requires a rigid mount.
+
+The mount determines **which physical surface the sensor measures**.
+
+Check that:
+
+- the optical aperture is unobstructed;
+- no chassis edge enters the useful sensing path;
+- wiring cannot move in front of the sensor;
+- the sensor cannot rotate inside the mount;
+- the intended wall or parking reference remains inside the useful measurement region.
+
+The current chassis therefore uses:
+
+```text
+3 × ToF sensor positions
+```
+
+rather than the earlier two-sensor arrangement.
+
+---
+
+# 6. Current Sensor-Fusion Architecture
+
+The Revision 27 architecture is:
+
+```text
+CAMERAS  = field appearance + image geometry
+TOF ×3   = direct short-range distance
+IMU      = relative heading / turn information
+ENCODER  = drivetrain shaft movement
+PI       = state logic + perception + control
+DRIVER   = propulsion direction + PWM
+SERVO    = Ackermann steering
+```
+
+---
+
+## Sensor Roles
+
+| Sensor | Primary question |
+| --- | --- |
+| Camera Module 3 Wide ×2 | What track, wall, pillar or parking feature is visible? |
+| VL53L0X ×3 | How far away is the nearby physical surface? |
+| MPU6050 | How much has the robot turned? |
+| Motor encoder | How much has the drive shaft rotated and in which direction? |
+
+No sensor is treated as a perfect substitute for another.
+
+---
+
+# 7. Current Drivetrain
+
+Starlight uses:
+
+```text
+Drive type     : mechanical 4WD
+Drive motor    : 12 V geared encoder motor, 600 RPM
+External ratio : 1:1
+Differential   : mechanical differential
+Feedback       : integrated quadrature encoder
+Steering       : front Ackermann
+```
+
+---
+
+## 1:1 External Gearing
+
+The current external drivetrain ratio is:
+
+\[
+G = 1
+\]
+
+Therefore, ideally:
+
+```text
+1 motor gearbox-output revolution
+             ↓
+1 wheel-transmission revolution
+```
+
+The exact current gear tooth counts should follow the physically installed drivetrain.
+
+Do not describe the historical:
+
+```text
+36T driving → 24T driven
+```
+
+pair as the current gear stage.
+
+That historical configuration gave:
+
+\[
+G = \frac{36}{24} = 1.5
+\]
+
+and was a speed-increasing drivetrain configuration.
+
+---
+
+## Why the Current Ratio Changed
+
+The current 1:1 arrangement prioritizes:
+
+- wheel torque;
+- controllability;
+- drivetrain operating margin;
+- reliable acceleration;
+- repeatable motion.
+
+over maximum theoretical speed.
+
+This decision followed earlier high-load and stall behaviour.
+
+---
+
+# 8. Mechanical Differential
+
+A turn requires the inside and outside wheels to travel different distances.
+
+```text
+Outer wheel
+→ longer path
+
+Inner wheel
+→ shorter path
+```
+
+The mechanical differential allows driven sides to rotate at different speeds while receiving propulsion from the same motor.
+
+This works together with Ackermann steering:
+
+```text
+ACKERMANN
+→ different steering angles
+
+DIFFERENTIAL
+→ different wheel speeds
+
+ENCODER
+→ drive-source rotation feedback
+```
+
+---
+
+# 9. Steering Hardware
+
+| Item | Current role |
+| --- | --- |
+| **DS3225 servo** | Steering actuator |
+| **Ackermann linkage** | Produces different inside/outside steering angles |
+| **LEGO / printed links** | Mechanical steering transmission |
+| **Software steering clamp** | Prevents excessive servo travel |
+
+Published control interface:
+
+```text
+Servo signal: GPIO22
+PWM: 50 Hz
+```
+
+Calibration values should follow the physically tested final source.
+
+Servo command values are **not** measured road-wheel angles.
+
+---
+
+# 10. Camera Hardware
+
+Starlight uses:
+
+```text
+2 × Raspberry Pi Camera Module 3 Wide
+```
+
+The current mechanical arrangement places the cameras in repeatable rigid mounts designed around the final field geometry.
+
+The documented viewing direction is approximately:
+
+```text
+60° from horizontal
+```
+
+Camera pose affects:
+
+- ROI geometry;
+- wall location in the frame;
+- pillar appearance;
+- marker detection;
+- parking geometry.
+
+The mount is therefore part of the sensing system, not decorative structure.
+
+---
+
+# 11. Power System
 
 | Qty. | Component | Purpose | Purchase link / status |
-|---:|---|---|---|
-| 1 | **3S LiPo battery — 11.1 V, 2200 mAh** | Main robot energy source | [Amazon.in](https://www.amazon.in/PRAYOG-INDIA-ROBOTICS-Rechargeable-Connector/dp/B0H9L6B694) |
-| 1 | **LiPo balance charger** | Correct charging and cell balancing for the 3S pack | [Amazon.in](https://www.amazon.in/Pro3D-B6-AC-Battery-Balance-Charger/dp/B0CV9H28MQ) |
-| 1 | **Higher-current regulated 5 V Raspberry Pi rail, approximately 5 A** | Main regulated Pi supply; retained after earlier undervoltage issues | **Exact final purchase link still to be recorded** |
-| 1 | **5 V / 3 A buck converter / BEC** | Auxiliary regulated rail where required | [Robu.in](https://robu.in/product/ultra-small-size-dc-dc-5v-3a-bec-power-supply-buck-step-down-module/) |
-| 1 | **Main power switch** | Single switch used to power on the vehicle | Source locally; current-rated |
-| — | **Power-distribution wiring / perfboard / terminals** | Clean distribution to Pi, servo, sensors and motor system | Source locally |
-| — | **XT-style battery connector pair** | Secure battery connection | Match the installed battery |
-| — | **Heat-shrink / insulation / strain relief** | Electrical protection and serviceability | Source locally |
-
-## Power-system requirements for the upgraded sensor stack
-
-- Keep **motor current paths physically and electrically tidy** to reduce noise coupled into the encoder and I²C sensors.
-- Avoid powering the Pi through a marginal regulator. A robot that can see the entire track but reboots in a corner is merely an expensive spectator.
-- Verify 5 V rail stability with **both cameras active, both ToFs ranging, the servo moving and the drivetrain accelerating**.
-- Confirm every ground reference is deliberate. Encoder, ToF and control-signal grounds must not be accidental through some heroic jumper wire.
-- Provide strain relief on the battery, motor and regulator connections.
-
-### LiPo handling
-
-- charge with a compatible balance charger;
-- select the correct cell count;
-- never leave charging unattended;
-- verify polarity before connecting electronics;
-- inspect the pack for swelling or damage before use;
-- provide a fast, accessible way to isolate power.
+| ---: | --- | --- | --- |
+| 1 | **3S LiPo, 11.1 V, 2200 mAh** | Main energy source | [Amazon.in](https://www.amazon.in/PRAYOG-INDIA-ROBOTICS-Rechargeable-Connector/dp/B0H9L6B694) |
+| 1 | **LiPo balance charger** | Charging and cell balancing | [Amazon.in](https://www.amazon.in/Pro3D-B6-AC-Battery-Balance-Charger/dp/B0CV9H28MQ) |
+| 1 | **Regulated 5 V Raspberry Pi supply, approximately 5 A** | Main computer rail | Exact installed unit should be recorded |
+| 1 | **5 V / 3 A buck converter / BEC** | Auxiliary regulated rail where used | [Robu.in](https://robu.in/product/ultra-small-size-dc-dc-5v-3a-bec-power-supply-buck-step-down-module/) |
+| 1 | **Main power switch** | Main vehicle isolation | Source locally |
+| — | Distribution wiring / terminals | Power distribution | Installed wiring |
+| — | Battery connector pair | Battery connection | Match installed pack |
+| — | Heat-shrink / insulation | Electrical protection | Source locally |
 
 ---
 
-# 6. Competition Controls & 2026 APOC Rule-Critical Hardware
+## Power Validation
 
-For an international WRO Open Championship, the **international 2026 Future Engineers rules** apply unless an official event clarification says otherwise.
+Test the regulated electronics rail with:
 
-Official rules:  
-https://wro-association.org/wp-content/uploads/WRO-2026-Future-Engineers-Self-Driving-Cars-General-Rules.pdf
+```text
+Raspberry Pi active
++
+both cameras active
++
+all three ToF sensors ranging
++
+MPU6050 active
++
+encoder active
++
+servo moving
++
+motor accelerating
+```
 
-Relevant hardware constraints for the BOM/build review include:
+Earlier undervoltage behaviour is one reason the higher-current Pi supply was retained.
 
-| Requirement | Starlight BOM implication |
-|---|---|
-| Vehicle maximum size: **300 × 200 mm**, height **300 mm** | Check the final robot with camera and ToF mounts installed |
-| Vehicle maximum mass: **1.5 kg** | Weigh the complete competition robot with battery |
-| Four-wheeled vehicle with steering; no differential-wheeled base | Retain Ackermann steering and mechanically linked drivetrain |
-| Sensors are unrestricted in brand/function/number | Dual VL53L0X sensors are permitted |
-| DC motors / servos are unrestricted in brand | Rhino GB37 motor is permitted, subject to the rest of the vehicle rules |
-| Drive wheels must remain physically linked; no independent one-motor-per-side electronic differential | Retain the mechanical drivetrain/differential architecture |
-| Only wired communication between electromechanical components | Disable wireless communication during rounds |
-| **Only one switch** to switch the vehicle on | Use the single main power switch listed in this BOM |
-| Powered robot must wait for **one Start button** | Use the dedicated momentary Start push button |
-| Bring enough spare parts | Maintain the APOC spares pack below |
-| Only one competition vehicle is allowed in the competition area | Bring spare **components**, not a second assembled car |
+---
 
-### Start-system state
+# 12. Structural and Manufacturing Materials
 
-The intended competition flow is:
+Starlight combines custom printed structures with LEGO Technic mechanisms.
+
+| Item | Purpose |
+| --- | --- |
+| **PLA / final print material** | Chassis, electronics structure and sensor mounts |
+| **Rigid camera mounts** | Preserve calibrated camera pose |
+| **3 × rigid ToF mounts** | Preserve range-sensor direction |
+| **Motor mount / bracket** | Secure current 600 RPM motor |
+| **Motor-to-drivetrain coupling** | Transfer motor output to mechanical transmission |
+| **Electronics mounts** | Secure Raspberry Pi and electrical hardware |
+| **Fasteners** | Printed-part and electronics assembly |
+| **Perfboard / distribution board** | Electrical mounting where used |
+| **Hook-up wire / ribbon cable** | Signal and power distribution |
+| **Cable ties / heat-shrink** | Cable management and protection |
+
+See:
+
+```text
+Models/
+```
+
+for current mechanical model files.
+
+---
+
+# 13. LEGO Technic Drivetrain Components
+
+LEGO Technic parts are retained where serviceability and mechanical adjustment are useful.
+
+| Component | Role | Reference |
+| --- | --- | --- |
+| **2 × 4 L Beam** | Compact mechanical support | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=32140) |
+| **Half bush** | Axle spacing / retention | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=4265c&idColor=3) |
+| **Bush** | Axle retention | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=3713) |
+| **2L axle connector** | Joins shaft sections | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=6538c) |
+| **28-tooth differential** | Allows unequal driven-wheel speed | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=73071) |
+| **24-tooth gear** | Retained drivetrain inventory / historical or other transmission use | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=3648) |
+| **20-tooth gear** | Intermediate drivetrain use where installed | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=32269) |
+| **12-tooth bevel gear** | Compact direction-changing transmission | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=6589) |
+| **9-unit beam** | Drivetrain structure | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=40490) |
+| **5L axle** | Drivetrain shaft | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?id=540&idColor=86) |
+| **6L axle** | Drivetrain shaft | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=3706&idColor=60) |
+| **4L axle with stop** | Shaft positioning | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?id=90241&idColor=85) |
+| **Smooth pin** | Beam connection / pivot | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=3673) |
+| **Universal joint** | Rotation transfer between non-collinear shafts | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=62520c01) |
+| **43 × 14 wheel / tyre assembly** | Wheel contact | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=65834pb02) |
+
+> [!NOTE]
+> The exact pair of external gears forming the **current 1:1 ratio** should be recorded from the installed Rev27 drivetrain.
+>
+> Do not label the older 36T → 24T speed-increasing pair as current.
+
+---
+
+# 14. Current Wiring Baseline
+
+| Function | Current interface |
+| --- | --- |
+| Motor direction | GPIO5 / GPIO6 |
+| Motor PWM | GPIO13 |
+| Motor PWM frequency | 1 kHz |
+| Steering servo | GPIO22 |
+| Steering PWM frequency | 50 Hz |
+| I2C SDA | GPIO2 |
+| I2C SCL | GPIO3 |
+| MPU6050 | I2C address `0x68` |
+| ToF 1 XSHUT | GPIO16 |
+| ToF 2 XSHUT | GPIO20 |
+| ToF 3 XSHUT | GPIO21 |
+| Encoder | Integrated C1 / C2 channels |
+
+See:
+
+```text
+wiring-guide.md
+```
+
+for complete wiring.
+
+---
+
+# 15. Harness Checklist
+
+## Power and Actuation
+
+- [ ] Battery connector secure
+- [ ] Motor wiring secured
+- [ ] Main switch installed
+- [ ] Raspberry Pi regulated supply connected
+- [ ] Servo power and signal secure
+- [ ] Motor-driver PWM and direction wiring secure
+- [ ] Common grounds verified
+- [ ] Heat-shrink / insulation fitted
+- [ ] High-current wiring strain-relieved
+
+## Cameras and I2C
+
+- [ ] Camera 1 ribbon secured
+- [ ] Camera 2 ribbon secured
+- [ ] SDA / SCL wiring secure
+- [ ] MPU6050 connection verified
+- [ ] ToF 1 power / SDA / SCL / XSHUT verified
+- [ ] ToF 2 power / SDA / SCL / XSHUT verified
+- [ ] ToF 3 power / SDA / SCL / XSHUT verified
+- [ ] GPIO16 / GPIO20 / GPIO21 labels verified
+- [ ] All ToF connectors labelled physically
+- [ ] Sensor orientation matches software naming
+
+## Encoder
+
+- [ ] Motor power wires secure
+- [ ] Encoder supply correct
+- [ ] Encoder ground connected
+- [ ] Encoder channel 1 verified
+- [ ] Encoder channel 2 verified
+- [ ] Count direction verified
+- [ ] Logic-level compatibility verified
+- [ ] Signal wiring routed away from motor wiring where practical
+
+---
+
+# 16. Component Tests
+
+Before a full run:
+
+```text
+Steering   → src/servo_test.py
+Encoder    → src/encoder_test.py
+ToF ×3     → src/TUF_test.py
+Heading    → src/heading.py
+Vision     → src/Cal_APOC.py
+```
+
+Recommended order:
+
+```text
+Mechanical inspection
+        ↓
+Power inspection
+        ↓
+Steering test
+        ↓
+Encoder test
+        ↓
+ToF test
+        ↓
+Heading test
+        ↓
+Camera calibration
+        ↓
+Low-speed integrated run
+        ↓
+Full challenge
+```
+
+---
+
+# 17. Competition Controls
+
+The current physical control system includes:
+
+```text
+1 × main power switch
+1 × momentary Start button
+```
+
+Expected startup flow:
 
 ```text
 ROBOT OFF
    ↓
-main power switch ON
+Main switch ON
    ↓
-boot + initialise sensors
+Raspberry Pi boots
+   ↓
+Cameras initialize
+   ↓
+IMU initializes
+   ↓
+Encoder initializes
+   ↓
+Three ToF sensors receive separate addresses
    ↓
 WAITING STATE
    ↓
-judge says GO
+Start button
    ↓
-press the single Start button
-   ↓
-autonomous motion begins
+Autonomous motion
 ```
 
-The dual-ToF address assignment and encoder initialisation should therefore happen automatically during startup, before the robot reaches its waiting state.
+Always confirm the final hardware against the current official WRO Future Engineers rules and event Q&A before competition.
 
 ---
 
-# 7. Structural and Manufacturing Materials
-
-A large part of Starlight is custom-built rather than purchased as one chassis kit.
-
-| Item | Purpose / note |
-|---|---|
-| **PLA / final chosen print material** | Main chassis, electronics enclosure, camera and sensor mounts |
-| **3D-printed front camera mount** | Holds the front Camera Module 3 at the calibrated field-view angle |
-| **3D-printed rear camera mount** | Supports rear parking camera geometry |
-| **2 × rigid VL53L0X mounts** | Fixes ToF sensor position and beam direction reproducibly |
-| **Rhino GB37 motor mount / bracket** | Secures the 37 mm gearbox without allowing torque-induced movement |
-| **6 mm D-shaft compatible coupling / hub interface** | Couples the new motor output to the retained drivetrain |
-| **3D-printed electronics / chassis parts** | Packages Raspberry Pi, wiring and drivetrain around the mechanical frame |
-| **Fasteners** | Screws, nuts, washers and spacers used to secure printed and electronic parts |
-| **Perfboard / prototyping board** | Custom electronics / power-distribution mounting where used |
-| **Hook-up wire / jumper wire / ribbon cable** | Signal and power distribution |
-| **Cable ties / heat-shrink / insulation** | Cable management and electrical protection |
-
-See [`3D_PRINTING_SETTINGS.md`](3D_PRINTING_SETTINGS.md) for the retained print profile.
-
-> **APOC mechanical rule:** After adding the new 37 mm motor body, encoder wiring and dual ToF mounts, re-check the complete robot against the 300 × 200 × 300 mm and 1.5 kg limits.
-
----
-
-# 8. LEGO Technic — Differential, Gearing and Drivetrain
-
-LEGO Technic elements are used for the mechanical differential, external gearing, shafts, supports and parts of the 4WD transmission.
-
-| Component | Main use | BrickLink |
-|---|---|---|
-| **2 × 4 L Beam** | Compact structural / drivetrain support | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=32140) |
-| **Half bush** | Axle spacing and retention | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=4265c&idColor=3) |
-| **Bush** | Axle retention and spacing | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=3713) |
-| **2L axle connector** | Joins axle sections | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=6538c) |
-| **28-tooth differential** | Allows left/right driven outputs to rotate at different speeds in a turn | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=73071) |
-| **24-tooth gear** | External transmission / drivetrain gearing | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=3648) |
-| **20-tooth gear** | Intermediate drivetrain gearing where required | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=32269) |
-| **12-tooth bevel gear** | Changes transmission direction / meshes in compact drivetrain geometry | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=6589) |
-| **9-unit beam** | Chassis and drivetrain structural support | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=40490) |
-| **5L axle** | Drivetrain shaft | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?id=540&idColor=86) |
-| **6L axle** | Drivetrain shaft | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=3706&idColor=60) |
-| **4L axle with stop** | Retained shaft / wheel or gear positioning | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?id=90241&idColor=85) |
-| **Smooth pin** | Beam connection / pivot support | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=3673) |
-| **Universal joint** | Transfers rotation between shafts that are not perfectly collinear | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=62520c01) |
-| **LEGO Technic wheel 43 × 14 with medium-azure tyre** | Wheel / tyre assembly | [BrickLink](https://www.bricklink.com/v2/catalog/catalogitem.page?P=65834pb02) |
-| **36-tooth driving gear** | Retained external speed stage | **Exact retained BrickLink catalogue entry still to be added** |
-
----
-
-# 9. Starlight Drivetrain Summary
-
-The APOC drivetrain remains a **four-wheel-drive mechanical system** using a differential and external LEGO gearing, now driven by the encoder-equipped Rhino GB37.
-
-```text
-Driven wheels : 4
-Drive type    : mechanical 4WD
-Drive motor   : Rhino GB37 RMCS-4091, 12 V, encoder-equipped
-Differential  : LEGO Technic 28T differential
-Gear stage    : 36T driving gear → 24T driven gear
-Feedback      : integrated quadrature encoder
-```
-
-## Retained 36T → 24T speed stage
-
-The external speed stage is retained as:
-
-\[
-\frac{36}{24}=1.5
-\]
-
-So the driven shaft rotates faster than the motor-side gear, with a corresponding ideal torque reduction before losses.
-
-Because the **new motor itself is already a high-speed 1000 RPM-class unit**, do not assume the previous PWM values, braking distances or corner-entry speeds remain appropriate. Recalibrate speed control and validate drivetrain load after the motor swap.
-
-For a beginner explanation of the differential and how to reproduce it, see:
-
-[`Mechanical_Differential_Starlight_Style_Guide.md`](Mechanical_Differential_Starlight_Style_Guide.md)
-
----
-
-# 10. Mechanical Differential — Why It Is There
-
-During a turn, the outside wheels travel farther than the inside wheels.
-
-```text
-outside wheel speed > inside wheel speed
-```
-
-If left and right wheels were rigidly forced to rotate at exactly the same speed, the tyres would scrub or slide.
-
-The mechanical differential allows the left and right drivetrain outputs to rotate at different speeds while remaining powered by the same drive system.
-
-This complements Ackermann steering:
-
-```text
-ACKERMANN    → gives inside/outside wheels different steering angles
-DIFFERENTIAL → allows inside/outside sides to rotate at different speeds
-ENCODER      → measures the motion of the common drive source
-```
-
----
-
-# 11. Final Steering Hardware
-
-| Item | Final role |
-|---|---|
-| **DS3225 servo** | Steering actuator |
-| **Ackermann linkage** | Converts servo motion into different inner/outer steering angles |
-| **LEGO / printed mechanical links** | Steering transmission and wheel support |
-
-Current software calibration:
-
-```text
-LEFT   = 35
-CENTER = 75
-RIGHT  = 105
-```
-
-These are **servo command values**, not measured road-wheel steering angles. After any chassis or linkage change, re-check physical end stops before full-speed testing.
-
----
-
-# 12. Final Camera Arrangement
-
-Starlight uses two Raspberry Pi Camera Module 3 Wide units.
-
-## Front camera
-
-Used for:
-
-- black-wall geometry;
-- blue/orange direction markers;
-- red/green obstacle pillars;
-- magenta parking/course cues;
-- challenge-state perception.
-
-## Rear camera
-
-Used primarily for:
-
-- rear parking-slot geometry;
-- reverse parking alignment.
-
-Camera mounts are part of the calibrated sensing system. Rebuilding the software without reproducing approximately the same camera pose may require threshold and target recalibration.
-
-The new ToF sensors are **additional range sensors**, not substitutes for the front/rear camera geometry.
-
----
-
-# 13. Wiring / Harness Checklist — APOC Version
-
-A competition build should have a labelled, serviceable harness rather than a small rainforest of jumper wires.
-
-## Power and actuation
-
-- [ ] appropriate-gauge battery wire;
-- [ ] appropriate-gauge motor wire;
-- [ ] secure battery connector pair;
-- [ ] single main power switch;
-- [ ] 5 V Pi rail wiring;
-- [ ] servo power and signal wiring;
-- [ ] motor-driver PWM/direction wiring;
-- [ ] heat-shrink and strain relief.
-
-## Cameras and I²C
-
-- [ ] front camera ribbon cable of correct length;
-- [ ] rear camera ribbon cable of correct length;
-- [ ] SDA/SCL bus wiring;
-- [ ] MPU6050 I²C wiring;
-- [ ] ToF #1 power, SDA, SCL and XSHUT;
-- [ ] ToF #2 power, SDA, SCL and XSHUT;
-- [ ] labelled ToF connectors;
-- [ ] common-ground verification.
-
-## Encoder
-
-- [ ] motor M1/M2 wires;
-- [ ] encoder 5 V supply;
-- [ ] encoder ground;
-- [ ] encoder C1 signal;
-- [ ] encoder C2 signal;
-- [ ] verified logic-level compatibility / level shifting if required;
-- [ ] physical separation from noisy motor wiring where practical.
-
-## Competition control
-
-- [ ] single Start push button;
-- [ ] status LED if retained;
-- [ ] Start button debounced in software/hardware;
-- [ ] robot boots into waiting state automatically;
-- [ ] wireless functions disabled for competition rounds.
-
-## Mechanical / service
-
-- [ ] fasteners;
-- [ ] spacers / standoffs;
-- [ ] perfboard or equivalent custom electronics mounting;
-- [ ] cable ties;
-- [ ] removable connectors on parts likely to be replaced at the event;
-- [ ] no wire can enter gears, steering linkage or wheels at full steering lock.
-
----
-
-# 14. APOC Spares Pack
-
-The 2026 WRO Future Engineers rules explicitly tell teams to bring enough spare parts. Do that. International competitions are a terrible place to discover that a ₹119 sensor has become the most important object in Hyderabad.
-
-Recommended spares:
+# 18. APOC Spares Pack
 
 | Spare | Suggested qty. | Reason |
-|---|---:|---|
-| **Rhino GB37 RMCS-4091 motor** | 1 | Highest-impact drivetrain replacement |
-| **VL53L0X ToF sensor** | 2 | Small, inexpensive, easy to damage or miswire |
-| **TB6612FNG motor driver** | 1–2 | Quick swap if the drive stage fails |
-| **DS3225 steering servo** | 1 | Steering is mission-critical |
-| **Camera Module 3 Wide** | 1 | Shared spare for front/rear camera failure |
-| **Camera ribbon cables** | 2+ | Cables fail far more often than anyone wants to admit |
-| **MicroSD card with tested image/code** | 1 | Fast recovery from filesystem/card failure |
-| **5 V regulator / BEC** | 1 | Power faults can mimic software faults |
-| **Main power switch** | 1 | Mechanical wear / impact spare |
-| **Start push button** | 1 | Required control component |
-| **Motor/encoder connector harness** | 1 | Avoid re-soldering under time pressure |
-| **ToF harness / JST leads** | 2 | Allows immediate sensor replacement |
-| **Fasteners, bushes, axles, gears** | Assorted | Mechanical repairs |
-| **Heat-shrink, wire, solder, cable ties** | Assorted | Field repair consumables |
-
-> Bring spare **components**, not a second competition vehicle. The 2026 rules allow only one vehicle in the competition area.
+| --- | ---: | --- |
+| **Current 600 RPM encoder motor** | 1 | High-impact drivetrain spare |
+| **VL53L0X ToF sensor** | 2–3 | Small and easy to damage or miswire |
+| **TB6612FNG motor driver** | 1–2 | Drive-stage replacement |
+| **DS3225 steering servo** | 1 | Steering-critical component |
+| **Camera Module 3 Wide** | 1 | Shared spare |
+| **Camera ribbon cable** | 2+ | Frequent physical failure point |
+| **MicroSD card with tested image/code** | 1 | Fast software recovery |
+| **5 V regulator / BEC** | 1 | Power-system spare |
+| **Main power switch** | 1 | Mechanical spare |
+| **Start push button** | 1 | Control spare |
+| **Motor / encoder harness** | 1 | Fast drivetrain replacement |
+| **ToF harness / leads** | 2–3 | Fast range-sensor replacement |
+| **Fasteners / bushes / axles / gears** | Assorted | Mechanical repairs |
+| **Wire / solder / heat-shrink / cable ties** | Assorted | Electrical repairs |
 
 ---
 
-# 15. Development / Setup Equipment — Not Competition Payload
+# 19. Development Equipment
 
-These are useful for reproduction and debugging but are not permanent competition hardware.
+These items are useful during setup but are not permanent robot payload.
 
-| Component | Link / source | Note |
-|---|---|---|
-| Keyboard + mouse | [Amazon.in](https://www.amazon.in/gp/product/B0BHYJ8CVF) | Direct Raspberry Pi access during setup |
-| Monitor / HDMI display | Any compatible display | Bench setup and debugging |
-| Micro-HDMI to HDMI cable | [Robu.in](https://robu.in/product/micro-hdmi-male-to-standard-hdmi-male-cable-for-raspberry-pi-4/) | Development access only |
-| 0.96" I²C OLED display | [Robu.in](https://robu.in/product/0-96-inch-i2c-iic-oled-lcd-module-4pin-with-vcc-gnd-white/) | Earlier-revision / development item; not required on final Starlight |
-| USB logic analyser | Any suitable model | Useful for debugging encoder and I²C timing |
-| Bench power supply | Any suitable regulated supply | Controlled power testing before battery operation |
-
-The final robot does **not** depend on the OLED, external monitor, keyboard or mouse.
-
----
-
-# 16. Retired / Superseded Competition Hardware
-
-Keep superseded hardware documented so old code, photos and repository commits still make sense.
-
-| Component | Status | Replaced by |
-|---|---|---|
-| **JGB37-520 brushed DC geared motor, 12 V** | **Superseded for APOC 2026** | Rhino GB37 RMCS-4091 12 V 1000 RPM encoder motor |
-| No drivetrain feedback sensor | **Superseded** | Integrated quadrature encoder on RMCS-4091 |
-| Camera + IMU-only ranging architecture | **Superseded** | Camera + IMU + dual VL53L0X + encoder fusion |
-
-Do not silently delete older parts from the engineering history. Mark them as superseded so judges can follow the actual design evolution.
+| Component | Purpose |
+| --- | --- |
+| Keyboard + mouse | Local Pi setup |
+| External monitor | Bench debugging |
+| Micro-HDMI cable | Raspberry Pi display |
+| USB logic analyser | Encoder / I2C diagnosis |
+| Digital multimeter | Voltage, continuity and signal checks |
+| Bench supply | Controlled electrical testing |
+| Laptop | Git, SSH, calibration and code |
+| 3D printer | Sensor / camera / chassis parts |
+| Vernier caliper | Dimensional checks |
+| Digital scale | Final robot mass check |
 
 ---
 
-# 17. Recommended Tools
+# 20. Historical / Superseded Hardware
 
-| Tool | Why it is useful |
-|---|---|
-| Digital multimeter | Polarity, continuity, rail voltage and encoder-signal checks |
-| Soldering iron | Secure power and signal connections |
-| Wire stripper / cutter | Clean harness work |
-| Hex drivers / screwdrivers | Mechanical assembly |
-| Vernier caliper | Chassis, shaft, mount and clearance measurements |
-| 3D printer | Custom chassis, ToF mounts and camera mounts |
-| Laptop | SSH, Git, Python editing, calibration and video analysis |
-| USB logic analyser | Diagnose encoder and I²C issues |
-| External monitor + keyboard/mouse | Initial Pi setup and recovery |
-| LiPo-safe charging area / bag | Battery handling |
-| Small digital scale | Verify the complete robot remains under 1.5 kg |
+Historical components are retained here for traceability.
 
----
+They must not be confused with the current competition configuration.
 
-# 18. APOC Pre-Event Hardware Freeze Checklist
-
-Before declaring this BOM final:
-
-- [ ] new Rhino motor physically installed and locked against rotation in its mount;
-- [ ] 6 mm D-shaft coupling/drivetrain interface verified under full load;
-- [ ] motor direction confirmed in software;
-- [ ] encoder C1/C2 direction confirmed;
-- [ ] encoder counts verified against a known output-shaft rotation;
-- [ ] both VL53L0X sensors boot every time from cold power-on;
-- [ ] each ToF receives a unique address automatically;
-- [ ] ToF #1/#2 labels match software identifiers;
-- [ ] camera cables secured and strain-relieved;
-- [ ] full-load Pi power test passes without undervoltage warnings;
-- [ ] steering reaches full intended range without binding;
-- [ ] no wire can touch gears or tyres;
-- [ ] robot fits inside **300 × 200 × 300 mm**;
-- [ ] complete robot mass is **≤ 1.5 kg**;
-- [ ] wireless communication is disabled for competition mode;
-- [ ] one main power switch only;
-- [ ] one Start button only;
-- [ ] power-on leads to waiting state without manual calibration/input;
-- [ ] spare SD card boots correctly;
-- [ ] spare motor / sensor / driver parts have been electrically tested before packing;
-- [ ] BOM, wiring diagram, GitHub README and actual robot agree with one another.
+| Historical item | Status | Current replacement |
+| --- | --- | --- |
+| **Rhino GB37 RMCS-4091, 1000 RPM-class encoder motor** | Historical supplier / development reference | **Current 600 RPM encoder motor** |
+| **325 counts/output revolution** | Worked example from historical motor specification | **Installed current encoder calibration** |
+| **36T → 24T external gearing, ratio 1.5** | Historical speed-increasing drivetrain | **Current 1:1 gearing** |
+| **Two VL53L0X sensors** | Earlier APOC development state | **Three VL53L0X sensors** |
+| **Dual-ToF sensor fusion** | Earlier architecture | **Three-ToF architecture** |
+| Camera + IMU-only parking information | Superseded | Camera + heading + three ToF + drivetrain feedback |
 
 ---
 
-# 19. Suggested Purchase Order for the APOC Build
+## Historical 1000 RPM Motor Reference
 
-## Stage 1 — Immediate drivetrain + sensing upgrade
+The older BOM used:
 
-1. **Rhino GB37 RMCS-4091 12 V 1000 RPM encoder motor**
-2. **VL53L0X ToF sensor ×2**
-3. motor mounting hardware / 6 mm D-shaft coupling solution
-4. encoder connector / wire / any required signal-conditioning parts
-5. ToF connectors and XSHUT wiring
+```text
+Rhino GB37 RMCS-4091
+12 V
+1000 RPM class
+integrated encoder
+```
 
-## Stage 2 — Verify retained competition electronics
+Historical supplier link:
 
-6. Raspberry Pi 5, 4 GB
-7. Camera Module 3 Wide ×2
-8. DS3225 steering servo
-9. TB6612FNG motor driver
-10. MPU6050 module
-11. MicroSD card
-12. main power switch
-13. Start push button
+[Robokits India — Rhino GB37 RMCS-4091](https://robokits.co.in/motors/rhino-gb37-12v-dc-geared-motor/dc-12v-encoder-servo-motors/rhino-gb37-12v-1000rpm-0.7kgcm-dc-geared-encoder-servo-motor)
 
-## Stage 3 — Power
+This link is retained only so older:
 
-14. 3S 11.1 V 2200 mAh LiPo
-15. compatible balance charger
-16. final high-current 5 V Raspberry Pi regulator
-17. auxiliary 5 V regulator if required
-18. connectors, wire, insulation and strain relief
+- calculations;
+- commits;
+- photographs;
+- design notes
 
-## Stage 4 — Mechanics
+remain understandable.
 
-19. print material
-20. fasteners and spacers
-21. dual ToF mounts
-22. LEGO differential
-23. gears including retained 36T → 24T stage
-24. axles
-25. bushes / connectors
-26. universal joint
-27. beams
-28. wheels / tyres
-
-## Stage 5 — Spares
-
-29. spare Rhino motor
-30. spare ToF sensors
-31. spare motor driver
-32. spare servo
-33. spare camera / ribbon cables
-34. spare regulator
-35. spare imaged MicroSD
-36. spare switches / connectors / mechanical consumables
+It is **not the current competition motor specification**.
 
 ---
 
-# 20. Source-Link Maintenance
+# 21. Pre-Event Hardware Freeze Checklist
 
-When updating the repository:
+Before declaring the APOC hardware configuration frozen:
 
-1. Keep links to the **actual parts used**, not merely similar products.
-2. If a listing disappears, retain the original part name/model and add a replacement supplier separately.
-3. Do not silently substitute motors, cameras, ToF sensors, regulators or steering servos; these can change calibration and control behaviour.
-4. Record the exact final **5 V high-current Pi regulator** source.
-5. Add the exact BrickLink entry for the retained **36T driving gear**.
-6. If the motor driver changes after current testing, update both the BOM and the control/wiring documentation.
-7. Record the exact ToF breakout revision actually mounted if it differs from the linked Robokits board.
-8. Update photographs after the motor/ToF upgrade so the repository does not describe a robot that no longer exists.
-9. Re-check the official 2026 WRO Future Engineers Q&A before APOC; official Q&A can clarify or override points in the base rules.
-10. Update the date below whenever sourcing or final hardware changes.
+- [ ] current motor confirmed as nominal **600 RPM**
+- [ ] exact motor model / SKU recorded
+- [ ] exact motor purchase URL recorded
+- [ ] motor mount secure
+- [ ] current external gear ratio confirmed as **1:1**
+- [ ] drivetrain rotates freely
+- [ ] differential operates correctly
+- [ ] all four driven wheels receive propulsion
+- [ ] encoder direction confirmed
+- [ ] current encoder counts/revolution physically calibrated
+- [ ] no historical 325-count assumption used without verification
+- [ ] **three** VL53L0X sensors physically installed
+- [ ] ToF 1 initializes from cold boot
+- [ ] ToF 2 initializes from cold boot
+- [ ] ToF 3 initializes from cold boot
+- [ ] GPIO16 / GPIO20 / GPIO21 XSHUT sequence works
+- [ ] each ToF receives a unique address automatically
+- [ ] all sensor labels match software identifiers
+- [ ] both cameras initialize
+- [ ] camera mounts cannot shift
+- [ ] Pi supply passes full-load test
+- [ ] no undervoltage warning during normal integrated operation
+- [ ] steering travels without binding
+- [ ] no wire can enter gears, wheels or steering linkage
+- [ ] main power switch functions correctly
+- [ ] Start button functions correctly
+- [ ] robot boots into waiting state automatically
+- [ ] spare SD card boots
+- [ ] spare hardware has been tested
+- [ ] `bom.md` matches the physical robot
+- [ ] `wiring-guide.md` matches the physical robot
+- [ ] `drivetrain.md` matches the physical robot
+- [ ] engineering journal matches the physical robot
+- [ ] GitHub source matches the Raspberry Pi source
 
 ---
 
-# 21. Technical Sources for the APOC Upgrade
+# 22. Purchase / Verification Priority
 
-- **Rhino GB37 RMCS-4091 product page:**  
-  https://robokits.co.in/motors/rhino-gb37-12v-dc-geared-motor/dc-12v-encoder-servo-motors/rhino-gb37-12v-1000rpm-0.7kgcm-dc-geared-encoder-servo-motor
-- **VL53L0X breakout used as sourcing reference:**  
-  https://robokits.co.in/sensors/lidar-laser-rangefinders/tiny-lidar-laser-ranging-sensor-tof-based-on-vl53l0x-2-meters-range
-- **STMicroelectronics AN4846, multiple VL53L0X sensors:**  
-  https://www.st.com/resource/en/application_note/an4846-using-multiple-vl53l0x-in-a-single-design-stmicroelectronics.pdf
-- **WRO 2026 Future Engineers General & Game Rules:**  
-  https://wro-association.org/wp-content/uploads/WRO-2026-Future-Engineers-Self-Driving-Cars-General-Rules.pdf
-- **WRO 2026 Questions & Answers:**  
-  https://wro-association.org/competition/questions-answers/
+## Already Part of the Current Architecture
+
+1. Raspberry Pi 5, 4 GB
+2. Camera Module 3 Wide ×2
+3. VL53L0X ×3
+4. DS3225 servo
+5. TB6612FNG motor driver
+6. MPU6050 module
+7. 3S 11.1 V battery
+8. encoder-equipped 600 RPM motor
+9. main power switch
+10. Start button
+
+## Items That Must Be Explicitly Verified Before Freeze
+
+1. **Exact manufacturer / SKU of the current 600 RPM motor**
+2. **Exact current motor purchase link**
+3. **Installed encoder count convention**
+4. **Measured counts per gearbox-output revolution**
+5. **Exact current 1:1 gear tooth-count pair**
+6. **Exact high-current 5 V regulator**
+7. **Exact ToF breakout revision if different from linked board**
+
+Do not replace missing information with a specification from an older part merely because the number is conveniently available.
 
 ---
 
-# Final Reproduction Snapshot — APOC 2026
+# 23. Source-Link Maintenance
+
+When maintaining this BOM:
+
+1. Link to the **actual component installed**.
+2. Keep superseded components in the historical section.
+3. Never copy a motor specification onto a different motor.
+4. Never copy encoder counts from an old encoder onto the current encoder.
+5. Keep current and historical gearing clearly separated.
+6. Update ToF quantity everywhere if the sensor architecture changes.
+7. Keep XSHUT GPIO assignments synchronized with the wiring guide and source code.
+8. Update photographs after major mechanical changes.
+9. Update the BOM whenever the physical robot changes.
+10. Record the date of every configuration freeze.
+
+---
+
+# 24. Technical References
+
+### Current project references
+
+- `docs/hardware/drivetrain.md`
+- `docs/hardware/wiring-guide.md`
+- `docs/software/Software_Dependencies.md`
+- `docs/testing.md`
+- `docs/engineering-decisions.md`
+- `docs/failure-log.md`
+- `docs/development/apoc-hardware-update.md`
+- `src/encoder_test.py`
+- `src/TUF_test.py`
+- `src/servo_test.py`
+- `src/heading.py`
+
+### Component references
+
+- [Raspberry Pi 5](https://robu.in/product/raspberry-pi-5-model-4gb/)
+- [Raspberry Pi Camera Module 3 Wide](https://robu.in/product/raspberry-pi-camera-module-3-wide/)
+- [VL53L0X breakout](https://robokits.co.in/sensors/lidar-laser-rangefinders/tiny-lidar-laser-ranging-sensor-tof-based-on-vl53l0x-2-meters-range)
+- [DS3225 servo](https://robu.in/product/pro-range-ds3225-25kgcm-metal-gear-digital-servo-motor-180-degree/)
+- [TB6612FNG](https://robu.in/product/motor-driver-tb6612fng-module-performance-ultra-small-volume-3-pi-matching-performance-ultra-l298n/)
+- [MPU6050-based 10DOF module](https://robu.in/product/mpu6050hmc5883lbmp180-10dof-3-axis-gyro-3-axis-acceleration-3-axis-magnetic-field-air-pres/)
+
+### Historical motor reference
+
+- [Rhino GB37 RMCS-4091 1000 RPM-class motor](https://robokits.co.in/motors/rhino-gb37-12v-dc-geared-motor/dc-12v-encoder-servo-motors/rhino-gb37-12v-1000rpm-0.7kgcm-dc-geared-encoder-servo-motor)
+
+---
+
+# Final Reproduction Snapshot
 
 ```text
 ROBOT        : Starlight
-TEAM         : Team Sentio
-COMPETITION  : WRO Future Engineers — APOC 2026
+TEAM         : Team Sentio 1747
+COMPETITION  : WRO Future Engineers 2026 / APOC
 
 COMPUTE      : Raspberry Pi 5, 4 GB
 VISION       : 2 × Raspberry Pi Camera Module 3 Wide
-RANGE        : 2 × VL53L0X Time-of-Flight sensors
-ORIENTATION  : MPU6050 gyro / IMU module
-DRIVE MOTOR  : Rhino GB37 RMCS-4091, 12 V, 1000 RPM class
-ENCODER      : integrated quadrature encoder, 325 counts/output-shaft rev
-STEERING     : DS3225 servo + Ackermann geometry
-DRIVER       : TB6612FNG, pending final current-margin validation with new motor
+RANGE        : 3 × VL53L0X
+ORIENTATION  : MPU6050
+DRIVE MOTOR  : 12 V geared encoder motor, nominal 600 RPM
+ENCODER      : integrated quadrature encoder
+               installed count calibration required
+STEERING     : DS3225 + Ackermann
+DRIVER       : TB6612FNG
 BATTERY      : 3S LiPo, 11.1 V, 2200 mAh
 DRIVE        : mechanical 4WD
-DIFFERENTIAL : LEGO Technic 28T differential
-GEAR STAGE   : 36T driving → 24T driven
-START SYSTEM : one power switch + one Start push button
-CHASSIS      : custom 3D-printed + LEGO Technic drivetrain components
+DIFFERENTIAL : mechanical differential
+GEAR STAGE   : 1:1 external ratio
+TOF XSHUT    : GPIO16 / GPIO20 / GPIO21
+START SYSTEM : one power switch + one Start button
+STRUCTURE    : printed chassis / mounts + LEGO Technic mechanisms
 ```
 
 ---
 
-### Last updated
+## Revision Note
 
-**19 September 2026 — Team Sentio / Starlight — APOC hardware update**
+This revision corrects the principal configuration conflicts in the previous BOM:
+
+```text
+2 ToF          → 3 ToF
+1000 RPM motor → 600 RPM motor
+1.5 gearing    → 1:1 gearing
+325 counts/rev → historical only, not assigned to current encoder
+dual ToF       → three-sensor ToF architecture
+```
+
+The 1000 RPM motor and 36T → 24T gearing remain documented only as **historical development references**.
+
+---
+
+**Team Sentio 1747**  
+**Starlight**  
+**WRO Future Engineers 2026**  
+**Robofun Lab (RFL), India**
