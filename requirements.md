@@ -9,9 +9,9 @@ This document records the software environment, dependencies, hardware interface
 **Programming Language:** Python 3  
 **Competition:** World Robot Olympiad 2026 — Future Engineers  
 **Robot:** Starlight  
-**Current Documentation Baseline:** Engineering Journal Revision 27
+**Current Documentation Baseline:** Engineering Journal Revision 29
 
-The current Starlight configuration uses:
+The current Revision 29 Starlight configuration uses:
 
 - dual Raspberry Pi Camera Module 3 Wide cameras;
 - multi-ROI computer vision;
@@ -36,19 +36,23 @@ The current competition software architecture is organized around:
 
 ```text
 src/
-├── N_Vision_final.py
+├── Cal_APOC.py
 ├── Final_Obstacle_Challenge.py
+├── N_Vision_final.py
 ├── Sentio_Open_2026.py
 ├── openvision.py
-├── parking_final.py
-├── heading.py
-├── Cal_APOC.py
-├── servo_test.py
+├── TOF_22.py
+├── TUF_test.py
+├── drive.py
 ├── encoder_test.py
-└── TUF_test.py
+├── heading.py
+├── parking_final.py
+└── servo_test.py
 ```
 
-Additional low-level drive-control modules required by the physically tested competition controllers must also be included in `src/`.
+The current low-level drive interface is `src/drive.py`, and the current three-sensor ToF interface is `src/TOF_22.py`.
+
+Every local module imported by the physically tested competition controllers must be present in `src/` or otherwise clearly documented as an external dependency.
 
 | File | Purpose |
 |---|---|
@@ -56,6 +60,8 @@ Additional low-level drive-control modules required by the physically tested com
 | `src/Final_Obstacle_Challenge.py` | Main Obstacle Challenge controller |
 | `src/Sentio_Open_2026.py` | Main Open Challenge controller |
 | `src/openvision.py` | Primary Open Challenge vision module |
+| `src/TOF_22.py` | Three-VL53L0X initialization, XSHUT sequencing and distance interface |
+| `src/drive.py` | Motor PWM, motor direction, steering and encoder-assisted movement interface |
 | `src/parking_final.py` | Direction-dependent parking entry and final parallel-parking routine |
 | `src/heading.py` | MPU6050 calibration and relative heading calculation |
 | `src/Cal_APOC.py` | LAB / HSV field-calibration tool |
@@ -135,7 +141,7 @@ Sentio_Open_2026.py
 │   ├── NumPy
 │   └── Picamera2
 │
-├── drive interface
+├── drive.py
 │   ├── motor control
 │   ├── steering control
 │   └── encoder feedback
@@ -183,16 +189,16 @@ Final_Obstacle_Challenge.py
 ├── heading.py
 │   └── MPU6050
 │
-├── drive interface
+├── drive.py
 │   ├── motor control
 │   ├── encoder
 │   └── steering
 │
 └── parking_final.py
     ├── cameras
-    ├── heading
-    ├── distance sensors
-    └── drive interface
+    ├── heading.py
+    ├── TOF_22.py
+    └── drive.py
 ```
 
 The Obstacle Challenge combines:
@@ -231,7 +237,7 @@ The final behaviour is based on repeated sensing and state-dependent movement ra
 | **SMBus / SMBus2** | I2C communication where used by heading and sensors |
 | **VL53L0X-compatible Python interface** | Distance-sensor communication |
 
-The exact package used for the final VL53L0X implementation must match the imports contained in the physically tested `TUF_test.py` and parking source.
+The exact package used for the final VL53L0X implementation must match the imports contained in the physically tested `TOF_22.py`, `TUF_test.py` and parking source.
 
 Dependencies should not be added merely because they were used during experimentation.
 
@@ -307,6 +313,8 @@ The published Starlight hardware baseline uses BCM numbering.
 | Motor direction IN2 | GPIO6 |
 | Motor PWM | GPIO13 |
 | Steering servo PWM | GPIO22 |
+| Encoder A | GPIO17 |
+| Encoder B | GPIO27 |
 | I2C SDA | GPIO2 |
 | I2C SCL | GPIO3 |
 | ToF 1 XSHUT | GPIO16 |
@@ -315,7 +323,6 @@ The published Starlight hardware baseline uses BCM numbering.
 
 The final source remains authoritative for any additional pins associated with:
 
-- encoder input;
 - start button;
 - status LED;
 - auxiliary control lines.
@@ -364,6 +371,12 @@ ENABLE SENSOR 3
 ASSIGN WORKING ADDRESS
       ↓
 NORMAL DISTANCE READING
+```
+
+The current three-sensor interface is:
+
+```text
+src/TOF_22.py
 ```
 
 The low-level test program is:
@@ -763,21 +776,21 @@ Conceptually:
 ```text
                COURSE COMPLETE
                       │
-             DETERMINE DIRECTION
-                ┌─────┴─────┐
-                │           │
-               CW          ACW
-                │           │
-          CW POSITION     U-TURN
-                │           │
-                │      FOLLOW WALL
-                │           │
-                │     OPPOSITE CORNER
-                └─────┬─────┘
+              DETERMINE DIRECTION
+                 ┌─────┴─────┐
+                 │           │
+                CW          ACW
+                 │           │
+           CW POSITION     U-TURN
+                 │           │
+                 │      FOLLOW WALL
+                 │           │
+                 │     OPPOSITE CORNER
+                 └─────┬─────┘
                       │
-            SHARED FINAL PARKING
+             SHARED FINAL PARKING
                       │
-             PARALLEL FINAL STOP
+              PARALLEL FINAL STOP
 ```
 
 The anticlockwise route changes how Starlight reaches the parking entry.
@@ -807,7 +820,7 @@ print("Team Sentio dependency check: PASS")
 PY
 ```
 
-The final VL53L0X library should also be added to this verification block once the exact competition implementation is frozen in GitHub.
+The VL53L0X dependency should be verified against the imports used by the committed `TOF_22.py` and `TUF_test.py`. Do not substitute a different library merely because it supports the same sensor model.
 
 ---
 
@@ -820,19 +833,21 @@ At minimum, confirm that the current competition modules can be imported without
 The expected source set includes:
 
 ```text
-N_Vision_final.py
+Cal_APOC.py
 Final_Obstacle_Challenge.py
+N_Vision_final.py
 Sentio_Open_2026.py
 openvision.py
-parking_final.py
-heading.py
-Cal_APOC.py
-servo_test.py
-encoder_test.py
+TOF_22.py
 TUF_test.py
+drive.py
+encoder_test.py
+heading.py
+parking_final.py
+servo_test.py
 ```
 
-Any drive-control module imported by these files must also be present.
+All local modules imported by these files must also be present and synchronized with the physically tested Raspberry Pi source.
 
 If Python reports:
 
@@ -902,6 +917,8 @@ Then verify the expected structure.
 ├── README.md
 ├── CHANGELOG.md
 ├── requirements.md
+├── .gitattributes
+├── .gitignore
 │
 ├── src/
 ├── docs/
@@ -998,9 +1015,9 @@ The current Starlight architecture can be summarized as:
 ```text
 2 × CAMERA MODULE 3 WIDE
             ↓
-    MULTI-ROI VISION
+     MULTI-ROI VISION
             ↓
- WALL / PILLAR / COLOUR DATA
+  WALL / PILLAR / COLOUR DATA
             │
             │
 MPU6050 ────┤
@@ -1009,18 +1026,18 @@ ENCODER ────┤
             │
 3 × ToF ────┤
             ↓
-    RASPBERRY PI 5
+     RASPBERRY PI 5
             ↓
-    NAVIGATION STATE
+     NAVIGATION STATE
             ↓
-      DRIVE CONTROL
-       ┌────┴────┐
-       │         │
-     MOTOR     SERVO
-       │         │
-       └────┬────┘
+       DRIVE CONTROL
+        ┌────┴────┐
+        │         │
+      MOTOR     SERVO
+        │         │
+        └────┬────┘
             ↓
-    4WD + ACKERMANN
+     4WD + ACKERMANN
 ```
 
 This architecture should remain consistent across:
@@ -1191,6 +1208,8 @@ Everything required to reproduce the submitted configuration should be present i
 | Final multi-ROI vision | `src/N_Vision_final.py` |
 | Open Challenge | `src/Sentio_Open_2026.py` |
 | Open vision | `src/openvision.py` |
+| Drive / steering / encoder interface | `src/drive.py` |
+| Three-ToF interface | `src/TOF_22.py` |
 | Obstacle Challenge | `src/Final_Obstacle_Challenge.py` |
 | Parking | `src/parking_final.py` |
 | Heading | `src/heading.py` |
@@ -1214,7 +1233,8 @@ Before identifying the GitHub repository as the final competition release:
 [ ] Final Open controller uploaded
 [ ] Final Obstacle controller uploaded
 [ ] Final parking controller uploaded
-[ ] Final drive-control module uploaded
+[ ] Final drive-control module (`drive.py`) uploaded
+[ ] Final three-ToF interface (`TOF_22.py`) uploaded
 [ ] Final multi-ROI vision uploaded
 [ ] Open vision uploaded
 [ ] heading.py uploaded
