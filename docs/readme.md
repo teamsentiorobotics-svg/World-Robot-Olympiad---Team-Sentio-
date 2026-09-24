@@ -11,6 +11,8 @@
 
 This directory contains the technical documentation for **Starlight**, Team Sentio's autonomous vehicle developed for the **World Robot Olympiad 2026 Future Engineers** category.
 
+**Current documentation baseline:** Engineering Journal Revision 29.
+
 The documentation is organized around the complete engineering process:
 
 ```text
@@ -85,7 +87,7 @@ testing.md
 
 ## Current Hardware Architecture
 
-The current **Revision 27** Starlight configuration includes:
+The current **Revision 29** Starlight configuration includes:
 
 - Raspberry Pi 5, 4 GB;
 - 2 × Raspberry Pi Camera Module 3 Wide;
@@ -141,17 +143,27 @@ The current principal source files are located in:
 and include:
 
 ```text
-N_Vision_final.py
+Cal_APOC.py
 Final_Obstacle_Challenge.py
+N_Vision_final.py
 Sentio_Open_2026.py
 openvision.py
-parking_final.py
-heading.py
-Cal_APOC.py
-servo_test.py
-encoder_test.py
+TOF_22.py
 TUF_test.py
+drive.py
+encoder_test.py
+heading.py
+parking_final.py
+servo_test.py
 ```
+
+The Revision 29 source map explicitly includes:
+
+- `drive.py` as the shared motor, steering and encoder interface;
+- `TOF_22.py` as the three-VL53L0X sensor interface;
+- `TUF_test.py`, `encoder_test.py` and `servo_test.py` as dedicated subsystem tests.
+
+Every local module required by the physically tested competition controllers should also be present in GitHub.
 
 ---
 
@@ -292,11 +304,18 @@ World-Robot-Olympiad---Team-Sentio-/
 ├── CHANGELOG.md
 │
 ├── src/
-│   ├── challenge controllers
-│   ├── vision modules
-│   ├── parking logic
-│   ├── heading
-│   └── calibration / hardware tests
+│   ├── Cal_APOC.py
+│   ├── Final_Obstacle_Challenge.py
+│   ├── N_Vision_final.py
+│   ├── Sentio_Open_2026.py
+│   ├── openvision.py
+│   ├── TOF_22.py
+│   ├── TUF_test.py
+│   ├── drive.py
+│   ├── encoder_test.py
+│   ├── heading.py
+│   ├── parking_final.py
+│   └── servo_test.py
 │
 ├── docs/
 │   ├── engineering documentation
@@ -536,7 +555,7 @@ These show engineering development.
 
 However, historical information must be clearly labelled.
 
-The current **Revision 27** configuration uses:
+The current **Revision 29** configuration uses:
 
 ```text
 600 RPM encoder motor
