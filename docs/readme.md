@@ -1,6 +1,6 @@
 # Starlight Technical Documentation
 
-**Team Sentio 1747**  
+**Team Sentio 6010**  
 **WRO Future Engineers 2026**  
 **Robot:** Starlight  
 **Organisation:** Robofun Lab (RFL), India
@@ -621,7 +621,7 @@ That relationship is the purpose of this documentation directory.
 
 ---
 
-**Team Sentio 1747**  
+**Team Sentio 6010**  
 **Starlight**  
 **World Robot Olympiad - Future Engineers 2026**  
 **Robofun Lab (RFL), India**
