@@ -1225,7 +1225,7 @@ Before freezing the repository:
 
 ---
 
-**Team Sentio 1747**  
+**Team Sentio 6010**  
 **Starlight**  
 **World Robot Olympiad - Future Engineers 2026**  
 **Robofun Lab (RFL), India**
