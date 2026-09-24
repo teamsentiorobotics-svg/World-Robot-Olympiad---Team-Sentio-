@@ -8,32 +8,34 @@
 **Institution / Training Environment:** Robofun Lab (RFL), India  
 **Robot:** Starlight  
 **Competition:** World Robot Olympiad 2026 - Future Engineers  
-**Current Documentation Revision:** Revision 27, 22 September 2026
+**Current Documentation Revision:** Revision 29, 23 September 2026
 
 ---
 
-## Engineering Philosophy
+# Engineering Philosophy
 
 Starlight was not developed as one finished design.
 
 The vehicle evolved through repeated mechanical, electrical, sensing and software revisions.
 
-Our development process has consistently followed:
+Our development process follows:
 
 > **Build → Test → Observe → Find the failure → Modify → Retest**
 
-The final system combines:
+The current system combines:
 
 - four-wheel drive;
-- Ackermann steering;
+- front Ackermann steering;
 - a mechanical differential;
-- dual wide-angle cameras;
+- dual Raspberry Pi Camera Module 3 Wide cameras;
 - multi-ROI computer vision;
-- an MPU6050 heading reference;
+- HSV + LAB colour processing;
+- an MPU6050 relative-heading reference;
 - motor-encoder feedback;
 - three VL53L0X time-of-flight sensors;
 - modular Open, Obstacle and Parking controllers;
-- Raspberry Pi 5 based processing.
+- Raspberry Pi 5 processing;
+- field calibration and dedicated subsystem-test programs.
 
 The project is documented as an integrated engineering system rather than as a collection of independent components.
 
@@ -46,19 +48,22 @@ The project is documented as an integrated engineering system rather than as a c
 ├── README.md
 ├── CHANGELOG.md
 ├── requirements.md
+├── .gitattributes
 ├── .gitignore
 │
 ├── src/
-│   ├── N_Vision_final.py
+│   ├── Cal_APOC.py
 │   ├── Final_Obstacle_Challenge.py
+│   ├── N_Vision_final.py
 │   ├── Sentio_Open_2026.py
 │   ├── openvision.py
-│   ├── parking_final.py
-│   ├── heading.py
-│   ├── Cal_APOC.py
-│   ├── servo_test.py
+│   ├── TOF_22.py
+│   ├── TUF_test.py
+│   ├── drive.py
 │   ├── encoder_test.py
-│   └── TUF_test.py
+│   ├── heading.py
+│   ├── parking_final.py
+│   └── servo_test.py
 │
 ├── Models/
 │
@@ -67,7 +72,16 @@ The project is documented as an integrated engineering system rather than as a c
 │   ├── wiring_guide.md
 │   ├── differential_drive_system.md
 │   ├── Software_Dependencies.md
-│   └── pi_setup_instruction.md
+│   ├── pi_setup_instruction.md
+│   │
+│   ├── development/
+│   │   └── apoc-hardware-update.md
+│   │
+│   ├── engineering_decisions/
+│   ├── software/
+│   ├── testing/
+│   ├── failure_log.md
+│   └── readme.md
 │
 ├── schemes/
 ├── v-photos/
@@ -79,8 +93,8 @@ The project is documented as an integrated engineering system rather than as a c
 | Location | Purpose |
 |---|---|
 | `src/` | Competition controllers, sensing modules, calibration tools and component tests |
-| `Models/` | Chassis, robot-design and printable STL files |
-| `docs/` | BOM, wiring, drivetrain background, dependencies and Raspberry Pi setup |
+| `Models/` | Chassis, robot-design and printable STL/CAD resources |
+| `docs/` | Engineering decisions, testing records, BOM, wiring, dependencies and setup |
 | `schemes/` | Electrical and wiring references |
 | `v-photos/` | Vehicle photographs |
 | `t-photos/` | Team photographs |
@@ -94,14 +108,14 @@ The project is documented as an integrated engineering system rather than as a c
 
 # 1. System Overview
 
-Starlight is a compact four-wheel autonomous vehicle designed around **car-like steering mechanics and camera-led navigation**.
+Starlight is a compact four-wheel autonomous vehicle designed around **car-like steering mechanics, camera-led navigation and multiple complementary sensors**.
 
-The current configuration combines several different types of observations:
+The current configuration combines several different observations:
 
 ```text
 CAMERAS
    ↓
-Track geometry, walls, pillars and colour cues
+Walls, pillars, track geometry and colour cues
 
 MPU6050
    ↓
@@ -121,7 +135,9 @@ Short-range distance information
 
           ↓
 
-Navigation state + steering + propulsion
+Navigation state
+Steering
+Propulsion
 
           ↓
 
@@ -130,7 +146,7 @@ Navigation state + steering + propulsion
 
 Each sensor answers a different question.
 
-The system does not treat one sensor as an exact replacement for another.
+The software does not treat one sensor as an exact replacement for another.
 
 ---
 
@@ -146,11 +162,18 @@ The current vehicle uses:
 - rigid camera supports;
 - rigid distance-sensor mounts;
 - a geared DC drive motor;
-- encoder feedback.
+- quadrature encoder feedback.
 
-The goal of the mechanical design is not only movement.
+The mechanical structure must do more than simply hold the robot together.
 
-It must also keep the **camera geometry, sensor directions, drivetrain alignment and steering geometry repeatable**.
+It must keep the following sufficiently repeatable:
+
+- camera geometry;
+- sensor direction;
+- drivetrain alignment;
+- steering geometry;
+- electronics placement;
+- mechanical clearances.
 
 ---
 
@@ -164,7 +187,7 @@ During a turn:
 - the outside front wheel follows a larger-radius path;
 - the inside wheel therefore requires a larger steering angle.
 
-Ackermann geometry allows the front wheels to approximately follow their respective turning paths instead of forcing both wheels through the same angle.
+Ackermann geometry allows the two front wheels to approximately follow their respective turning paths rather than forcing them through identical angles.
 
 This reduces tyre scrub and improves repeatability during curved motion.
 
@@ -176,17 +199,17 @@ Steering angle and driven-wheel speed solve different problems.
 
 The outside driven wheel travels farther than the inside driven wheel during a turn.
 
-The mechanical differential allows the two sides of the drivetrain to rotate at different speeds while remaining powered by the same motor.
+The mechanical differential allows the two sides of the drivetrain to rotate at different speeds while remaining powered through the same transmission.
 
 ```text
 ACKERMANN STEERING
-→ sets the wheel directions
+→ sets wheel direction
 
-DIFFERENTIAL
-→ allows different driven-wheel speeds
+MECHANICAL DIFFERENTIAL
+→ permits unequal driven-wheel speeds
 ```
 
-Both mechanisms contribute to smoother car-like turning.
+Both contribute to smoother car-like turning.
 
 ---
 
@@ -200,9 +223,9 @@ Nominal output speed: 600 RPM
 External gear ratio: 1:1
 ```
 
-The final external transmission intentionally uses a **1:1 ratio**.
+The final transmission intentionally uses a **1:1 external ratio**.
 
-This differs from an earlier speed-increasing drivetrain configuration.
+This replaced an earlier speed-increasing drivetrain configuration.
 
 The revised design gives greater priority to:
 
@@ -212,7 +235,9 @@ The revised design gives greater priority to:
 - reduced motor loading;
 - repeatable challenge behaviour.
 
-A nominal motor speed is a component rating and should not be interpreted as a measured vehicle ground speed.
+A nominal motor RPM is a component specification.
+
+It should not automatically be interpreted as measured vehicle ground speed.
 
 ---
 
@@ -231,7 +256,7 @@ Four-wheel drive was retained because it provides:
 
 ## Motor Encoder
 
-The drive motor contains a quadrature encoder.
+The drive motor includes a quadrature encoder.
 
 The encoder reports shaft motion and direction through pulses.
 
@@ -245,20 +270,20 @@ It is used for:
 
 Encoder rotation is not identical to physical vehicle displacement.
 
-Wheel slip, tyre deformation, transmission play and surface conditions can all cause body travel to differ from shaft-based estimates.
+Wheel slip, tyre deformation, drivetrain play and surface conditions can all cause body movement to differ from shaft-based estimates.
 
 ---
 
 # 4. Main Electronics
 
-The current computing platform is:
+The main computing platform is:
 
 ```text
 Raspberry Pi 5
 4 GB RAM
 ```
 
-The current robot includes:
+Current major hardware includes:
 
 | Qty. | Component | Function |
 |---:|---|---|
@@ -294,23 +319,23 @@ Nominal stored energy:
 ≈ 24.42 Wh
 ```
 
-Starlight separates the main electrical loads into different functional branches.
+Starlight separates the major electrical loads into functional branches.
 
 ```text
                BATTERY
                   │
-        ┌─────────┴─────────┐
-        │                   │
-    MOTOR RAIL        REGULATED RAIL
-        │                   │
- Motor driver          Raspberry Pi
- Drive motor           Cameras
+         ┌────────┴────────┐
+         │                 │
+     MOTOR RAIL       REGULATED RAIL
+         │                 │
+   Motor driver        Raspberry Pi
+   Drive motor         Cameras
                        Sensors
 ```
 
 Connected control electronics share an appropriate common electrical reference.
 
-Voltage stability is particularly important because motor starts, motor reversals and servo movement can produce rapidly changing current demand.
+Voltage stability is important because motor starts, motor reversals and servo movements can produce rapidly changing current demand.
 
 ---
 
@@ -324,6 +349,8 @@ Main Raspberry Pi control assignments include:
 | Motor IN2 | GPIO6 |
 | Motor PWM | GPIO13 |
 | Steering servo | GPIO22 |
+| Encoder A | GPIO17 |
+| Encoder B | GPIO27 |
 | I2C SDA | GPIO2 |
 | I2C SCL | GPIO3 |
 | ToF 1 XSHUT | GPIO16 |
@@ -332,9 +359,9 @@ Main Raspberry Pi control assignments include:
 
 The MPU6050 uses the shared I2C bus.
 
-The VL53L0X sensors also use I2C.
+The three VL53L0X sensors also communicate over I2C.
 
-Because multiple VL53L0X sensors initially use the same default address, their XSHUT lines allow the sensors to be activated sequentially and assigned separate working addresses.
+Because identical VL53L0X sensors initially use the same default address, their XSHUT lines allow them to be enabled sequentially and assigned separate working addresses.
 
 ---
 
@@ -346,7 +373,7 @@ Starlight uses:
 2 × Raspberry Pi Camera Module 3 Wide
 ```
 
-The camera system is positioned to observe the working area of the track while allowing different image regions to perform different tasks.
+The camera arrangement is designed to observe the useful portion of the track while allowing different image regions to perform different tasks.
 
 The documented viewing direction is approximately:
 
@@ -368,7 +395,7 @@ The trade-off is reduced distant look-ahead and stronger perspective effects.
 
 # 8. Multi-ROI Computer Vision
 
-The current vision architecture uses a **720 × 360 image** divided into task-specific regions of interest.
+The current primary vision architecture uses a **720 × 360 image** divided into task-specific regions of interest.
 
 A simplified representation is:
 
@@ -376,7 +403,7 @@ A simplified representation is:
 ┌──────────────────────────────────────────────┐
 │ L1        L2        C        R2        R1    │
 │                                              │
-│            O / B course region               │
+│            ORANGE / BLUE REGION              │
 │                                              │
 │              BODY EXCLUSION                  │
 └──────────────────────────────────────────────┘
@@ -384,24 +411,24 @@ A simplified representation is:
 
 Different regions answer different navigation questions.
 
-Typical responsibilities include:
+Responsibilities include:
 
 - outer-wall observation;
 - inner-wall observation;
 - center reference;
 - orange / blue course cues;
 - pillar detection;
-- body exclusion.
+- robot-body exclusion.
 
-The robot's own structure may appear dark in the image.
+The robot's own structure may appear dark in the camera image.
 
-Exclusion regions therefore prevent visible robot components from being interpreted as track walls.
+Body-exclusion regions prevent visible parts of the vehicle from being interpreted as track walls.
 
 ---
 
 # 9. Vision Processing
 
-The current primary multi-ROI vision module is:
+The primary obstacle vision module is:
 
 ```text
 src/N_Vision_final.py
@@ -429,7 +456,7 @@ Region-aware detection
 Navigation observation
 ```
 
-The system uses a combination of:
+The system uses combinations of:
 
 - HSV colour information;
 - LAB colour information;
@@ -437,15 +464,15 @@ The system uses a combination of:
 - contour size;
 - contour geometry;
 - image position;
-- region identity.
+- ROI identity.
 
-This prevents navigation from depending only on whether a few pixels match a colour threshold.
+Navigation therefore does not depend solely on whether a handful of pixels happen to match a colour threshold.
 
 ---
 
 # 10. Calibration
 
-Field lighting can change the appearance of the same object.
+Field lighting can substantially change the appearance of the same physical colour.
 
 The repository therefore includes:
 
@@ -455,46 +482,53 @@ src/Cal_APOC.py
 
 This provides interactive LAB / HSV calibration controls.
 
-Calibration is used to adjust colour ranges for the actual competition environment before relying on those thresholds during autonomous navigation.
+Calibration is used to tune colour ranges for the actual competition environment before relying on those thresholds for autonomous navigation.
 
-The vision system should be calibrated after changes involving:
+Calibration should be checked after changes involving:
 
-- lighting;
+- field lighting;
 - camera position;
 - camera angle;
 - exposure;
-- physical track material;
+- track material;
 - major mechanical reconstruction.
 
 ---
 
 # 11. Software Architecture
 
-The final software is divided into mission-level controllers and reusable hardware or sensing modules.
+The competition software is divided into mission-level controllers and reusable hardware or sensing modules.
 
 ```text
-                  N_Vision_final.py
+                    VISION MODULES
                          │
-               Multi-ROI perception
+             ┌───────────┴───────────┐
+             │                       │
+     Open Challenge           Obstacle Challenge
+             │                       │
+ Sentio_Open_2026.py     Final_Obstacle_Challenge.py
+             │                       │
+       openvision.py          N_Vision_final.py
+             │                       │
+             └───────────┬───────────┘
                          │
-        ┌────────────────┴────────────────┐
-        │                                 │
-Sentio_Open_2026.py          Final_Obstacle_Challenge.py
-        │                                 │
- Open Challenge                    Obstacle Challenge
-        │                                 │
-        └──────────────┬──────────────────┘
-                       │
-                parking_final.py
-                       │
-                   heading.py
-                       │
-               Drive interface
-                       │
-          Motor + encoder + steering
+                  parking_final.py
+                         │
+                     heading.py
+                         │
+                      drive.py
+                         │
+               Motor + encoder
+                 + steering
 ```
 
-This makes faults easier to isolate.
+Distance-sensor support is provided through:
+
+```text
+TOF_22.py
+```
+
+This modular structure makes faults easier to isolate.
 
 A poor autonomous turn may originate from:
 
@@ -505,7 +539,7 @@ A poor autonomous turn may originate from:
 - drivetrain response;
 - state logic.
 
-Separating those responsibilities allows individual layers to be tested before a full challenge run.
+Separating these responsibilities allows individual layers to be tested before a complete challenge run.
 
 ---
 
@@ -517,13 +551,11 @@ The current Open Challenge controller is:
 src/Sentio_Open_2026.py
 ```
 
-Its primary Open vision module is:
+Its dedicated vision module is:
 
 ```text
 src/openvision.py
 ```
-
-`N_Vision_final.py` can also be used through the compatible observation interface.
 
 ---
 
@@ -559,17 +591,15 @@ center request
 KP × image error
 ```
 
-The controller repeatedly updates the steering response as the camera geometry changes.
+The controller repeatedly updates the steering response as camera observations change.
 
-This is different from relying entirely on predetermined timed turns.
+This differs from relying entirely on predetermined timed turns.
 
 ---
 
 ## Course Direction
 
-The controller uses track cues to determine the applicable course direction.
-
-Direction information affects:
+Course direction affects:
 
 - wall selection;
 - target image position;
@@ -595,13 +625,13 @@ from:
 SAME EVENT STILL VISIBLE
 ```
 
-Cooldown and event-transition logic prevent one marker from being repeatedly counted simply because it remains in the image.
+Cooldown and transition logic prevent the same marker from being repeatedly counted simply because it remains visible.
 
 ---
 
 # 13. Obstacle Challenge
 
-The current controller is:
+The main controller is:
 
 ```text
 src/Final_Obstacle_Challenge.py
@@ -613,8 +643,9 @@ The Obstacle Challenge combines:
 - red pillar detection;
 - green pillar detection;
 - course direction;
-- heading;
+- heading feedback;
 - encoder-assisted movement;
+- orange course-event counting;
 - parking transition logic;
 - repeated visual observations.
 
@@ -633,15 +664,15 @@ The controller considers:
 - active manoeuvre;
 - course direction.
 
-A pillar becoming visible does not automatically mean that the robot should immediately abandon its current manoeuvre.
+A pillar becoming visible does not automatically mean that the robot should abandon an active manoeuvre.
 
-This matters especially near corners, where obstacle observations may appear before an existing turn is complete.
+This is especially important near corners, where a new observation may appear before the previous turn is complete.
 
 ---
 
 ## Continuous Perception
 
-The final obstacle architecture repeatedly returns to sensing.
+The obstacle architecture repeatedly returns to sensing.
 
 ```text
 OBSERVE
@@ -696,7 +727,7 @@ It is not treated as an exact global compass or position measurement.
 
 A fixed motor time does not always produce the same turn.
 
-Variation may result from:
+Variation can result from:
 
 - battery condition;
 - motor loading;
@@ -705,13 +736,13 @@ Variation may result from:
 - drivetrain resistance;
 - surface conditions.
 
-Heading feedback allows selected manoeuvres to end based on the robot's observed orientation rather than time alone.
+Heading feedback allows selected manoeuvres to finish according to the robot's observed orientation rather than time alone.
 
 ---
 
 # 15. Parking
 
-The current parking controller is:
+The parking controller is:
 
 ```text
 src/parking_final.py
@@ -735,7 +766,7 @@ The final objective is to stop with the vehicle aligned **parallel to the magent
 
 Starlight cannot rotate about its center like a differential-drive robot.
 
-Parking therefore requires a sequence of controlled forward and reverse arcs.
+Parking therefore requires controlled forward and reverse arcs.
 
 ---
 
@@ -783,30 +814,42 @@ ENCODER
 
 # 16. ToF Distance Sensing
 
-The final vehicle uses:
+The current vehicle uses:
 
 ```text
 3 × VL53L0X
 ```
 
-The distance sensors support short-range decisions during parking and wall-relative movement.
+The main distance-sensor support module is:
 
-The current parking architecture includes concepts such as:
+```text
+src/TOF_22.py
+```
 
-- sensor activation before use;
-- repeated distance readings;
+The repository also includes:
+
+```text
+src/TUF_test.py
+```
+
+for standalone sensor testing.
+
+The distance-sensor system supports:
+
+- XSHUT activation sequencing;
+- unique I2C addressing;
+- repeated distance measurements;
+- qualifying-distance thresholds;
 - confirmation instead of trusting one isolated reading;
-- separation between qualifying detections;
+- cooldown between qualifying detections;
 - range-based movement termination;
-- controlled forward and reverse stopping phases.
-
-This makes close-range stopping less dependent on image geometry alone.
+- parking alignment and clearance checks.
 
 ---
 
 # 17. Clockwise and Anticlockwise Parking
 
-The two possible course directions require different routes into the parking area.
+The two possible course directions require different paths into the parking area.
 
 ```text
                     COURSE COMPLETE
@@ -816,21 +859,21 @@ The two possible course directions require different routes into the parking are
                     │           │
                    CW          ACW
                     │           │
-          CW entry position   U-turn
+          CW entry position   Reposition
                     │           │
-                    │      Follow wall
+                    │       Follow wall
                     │           │
-                    │    Opposite corner
+                    │     Opposite corner
                     └─────┬─────┘
                           │
                 Shared final parking
                           │
-              Parallel to magenta wall
+               Parallel to magenta wall
                           │
                          STOP
 ```
 
-The anticlockwise path performs the required repositioning before joining the same final parking logic used by the clockwise branch.
+The anticlockwise path performs the required repositioning before joining the final parking sequence.
 
 ---
 
@@ -838,7 +881,7 @@ The anticlockwise path performs the required repositioning before joining the sa
 
 Full challenge runs are not the first debugging step.
 
-The repository includes dedicated test programs.
+The repository contains dedicated subsystem tests.
 
 ---
 
@@ -895,7 +938,7 @@ Used to verify:
 src/Cal_APOC.py
 ```
 
-Used to verify and tune:
+Used to tune:
 
 - HSV thresholds;
 - LAB thresholds;
@@ -928,7 +971,7 @@ RETEST
 Before a complete autonomous run, checks include:
 
 - battery state;
-- secure electrical connections;
+- electrical connections;
 - regulated Raspberry Pi supply;
 - common electrical reference;
 - motor direction;
@@ -941,7 +984,7 @@ Before a complete autonomous run, checks include:
 - vision calibration;
 - MPU6050 communication;
 - ToF communication;
-- sensor orientation;
+- ToF sensor orientation;
 - correct source-code revision.
 
 ---
@@ -950,14 +993,10 @@ Before a complete autonomous run, checks include:
 
 The engineering record retains successful-run timing observations from development and practice.
 
-The retained datasets contain:
-
 ```text
 Development cohort: 19 successful runs
 Practice cohort:    12 successful runs
 ```
-
-Recorded summaries:
 
 | Cohort | n | Mean | Median | SD | Range |
 |---|---:|---:|---:|---:|---:|
@@ -968,13 +1007,13 @@ These are **successful retained runs only**.
 
 They are not presented as the success rate of all attempted runs.
 
-Different runs also belong to changing development configurations, so the timing data should not be treated as a controlled comparison of one isolated design change.
+Different runs also belong to changing development configurations, so these timings should not be interpreted as a controlled comparison of one isolated design change.
 
 ---
 
 # 21. Nationals Competition Record
 
-The Nationals results belong to an **earlier competition configuration** and should not be interpreted as performance measurements of the current post-Nationals APOC revision.
+The Nationals results belong to an **earlier competition configuration** and should not be interpreted as measurements of the current post-Nationals APOC revision.
 
 | Round | Recorded Score | Recorded Time | Recorded Outcome |
 |---|---:|---:|---|
@@ -982,7 +1021,7 @@ The Nationals results belong to an **earlier competition configuration** and sho
 | Open Run 2 | 30 / 30 | 56 s | Completed clockwise course |
 | Obstacle Run 2 | 29 / 62 | 66 s to stop | Green-obstacle contact, parking not achieved |
 
-These competition outcomes influenced the later redesign of:
+These competition outcomes influenced later redesign of:
 
 - camera geometry;
 - vision regions;
@@ -1024,50 +1063,48 @@ Major changes include:
 |---|---|
 | Four-wheel drive | Improved propulsion consistency and traction |
 | Ackermann steering | Car-like turning geometry |
-| Mechanical differential | Allows unequal wheel speeds during turns |
-| 600 RPM encoder motor | Better balance of movement, torque and controllability |
+| Mechanical differential | Allows unequal driven-wheel speeds during turns |
+| 600 RPM encoder motor | Balance of movement, torque and controllability |
 | 1:1 external gearing | Retains more wheel torque than the earlier speed-increasing stage |
 | Rigid camera supports | More repeatable visual geometry |
-| 60° camera view | Emphasizes nearby track features |
-| Multi-ROI vision | Gives different visual regions specific jobs |
+| Approx. 60° camera view | Emphasizes nearby track features |
+| Multi-ROI vision | Gives different image regions specific jobs |
 | Body exclusion | Prevents the robot from detecting itself as a wall |
-| HSV + LAB calibration | Better field-specific colour adjustment |
+| HSV + LAB calibration | Field-specific colour adjustment |
 | MPU6050 heading | Orientation-sensitive manoeuvre feedback |
 | Encoder feedback | Shaft-motion information |
 | Three VL53L0X sensors | Close-range gap and parking information |
-| Modular software | Easier debugging and replacement of individual subsystems |
-| Component test scripts | Fault isolation before full runs |
+| Modular software | Easier debugging and replacement of subsystems |
+| Component-test scripts | Fault isolation before complete autonomous runs |
 
 ---
 
 # 24. CAD and Mechanical Files
 
-Mechanical design resources are stored in:
+Mechanical-design resources are stored in:
 
 ```text
 Models/
 ```
 
-The directory contains the available mechanical-design and printable resources associated with Starlight.
+The directory contains available Starlight CAD, printable and mechanical-design resources.
 
-The repository also preserves earlier CAD and prototype material where useful for documenting the development process.
+Earlier CAD and prototype material is intentionally retained where useful for documenting the development process.
 
 Earlier models should not automatically be interpreted as the exact geometry of the current robot.
-
-Development history is retained deliberately so that major changes remain traceable.
 
 ---
 
 # 25. Electrical Documentation
 
-Electrical and wiring information is contained in:
+Electrical and wiring information is contained primarily in:
 
 ```text
 docs/
 schemes/
 ```
 
-Important supporting documents include:
+Important documents include:
 
 ```text
 docs/BOM_purchase_links.md
@@ -1076,7 +1113,7 @@ docs/Software_Dependencies.md
 docs/pi_setup_instruction.md
 ```
 
-Together, these describe:
+Together these document:
 
 ```text
 COMPONENTS
@@ -1092,17 +1129,40 @@ A reproducible robot requires all four.
 
 ---
 
-# 26. Raspberry Pi Setup
+# 26. Engineering Development Records
 
-Detailed Raspberry Pi setup information is provided in:
+The repository also preserves development evidence.
+
+Relevant areas include:
+
+```text
+docs/development/
+docs/engineering_decisions/
+docs/testing/
+docs/failure_log.md
+CHANGELOG.md
+```
+
+These records document:
+
+- hardware changes;
+- observed failures;
+- diagnoses;
+- design decisions;
+- corrective changes;
+- retesting;
+- configuration evolution.
+
+The objective is to preserve not only what worked, but also **why the final design became different from earlier versions**.
+
+---
+
+# 27. Raspberry Pi Setup
+
+Detailed setup information is provided through:
 
 ```text
 docs/pi_setup_instruction.md
-```
-
-and:
-
-```text
 docs/Software_Dependencies.md
 requirements.md
 ```
@@ -1115,15 +1175,14 @@ The software stack includes technologies such as:
 - Picamera2;
 - Raspberry Pi GPIO support;
 - I2C / SMBus interfaces;
-- sensor-specific Python libraries used by the final system.
+- GPIO Zero where required;
+- sensor-specific Python libraries used by the robot.
 
-The setup documentation should be followed before attempting to run the competition controllers.
+The environment should be prepared before attempting to run competition controllers.
 
 ---
 
-# 27. Recommended Reproduction Workflow
-
-A reproduction of Starlight should use the repository as a complete engineering package.
+# 28. Recommended Reproduction Workflow
 
 ```text
 1. Review README.md
@@ -1157,35 +1216,45 @@ A reproduction of Starlight should use the repository as a complete engineering 
 15. Record software + hardware revision
 ```
 
-A challenge result should remain linked to the exact hardware arrangement, camera geometry, calibration and software revision that produced it.
+A challenge result should remain associated with the exact:
+
+- hardware arrangement;
+- camera geometry;
+- calibration;
+- software revision;
+- observed result.
 
 ---
 
-# 28. Current Competition Software
-
-The current project software map is:
+# 29. Current Competition Software
 
 ```text
 src/
-├── N_Vision_final.py
+├── Cal_APOC.py
 ├── Final_Obstacle_Challenge.py
+├── N_Vision_final.py
 ├── Sentio_Open_2026.py
 ├── openvision.py
-├── parking_final.py
-├── heading.py
-├── Cal_APOC.py
-├── servo_test.py
+├── TOF_22.py
+├── TUF_test.py
+├── drive.py
 ├── encoder_test.py
-└── TUF_test.py
+├── heading.py
+├── parking_final.py
+└── servo_test.py
 ```
 
-### `N_Vision_final.py`
+### `Cal_APOC.py`
 
-Final multi-ROI computer vision for walls, pillars and track colours.
+Interactive LAB / HSV field-calibration tool.
 
 ### `Final_Obstacle_Challenge.py`
 
 Main Obstacle Challenge controller.
+
+### `N_Vision_final.py`
+
+Final multi-ROI computer vision for walls, pillars and track colours.
 
 ### `Sentio_Open_2026.py`
 
@@ -1193,35 +1262,39 @@ Main Open Challenge controller.
 
 ### `openvision.py`
 
-Primary Open Challenge vision module.
+Dedicated Open Challenge vision module.
 
-### `parking_final.py`
+### `TOF_22.py`
 
-Direction-dependent parking entry and shared final parking routine.
+Three-sensor VL53L0X initialization and distance interface.
+
+### `TUF_test.py`
+
+Distance-sensor test program.
+
+### `drive.py`
+
+Motor, encoder and steering interface.
+
+### `encoder_test.py`
+
+Encoder and motor-control test program.
 
 ### `heading.py`
 
 Shared MPU6050 relative-heading estimator.
 
-### `Cal_APOC.py`
+### `parking_final.py`
 
-Interactive LAB / HSV field-calibration tool.
+Direction-dependent parking and final parking control.
 
 ### `servo_test.py`
 
 Steering direction, center and range testing.
 
-### `encoder_test.py`
-
-Encoder and motor-control testing.
-
-### `TUF_test.py`
-
-VL53L0X distance-sensor testing.
-
 ---
 
-# 29. Development History
+# 30. Development History
 
 Starlight progressed through multiple complete vehicle configurations.
 
@@ -1258,7 +1331,7 @@ The robot therefore evolved as a complete system.
 
 ---
 
-# 30. Team Contributions
+# 31. Team Contributions
 
 ## Deyaan Agrawal
 
@@ -1298,7 +1371,7 @@ Primary areas included:
 
 ---
 
-# 31. Mentors and Robofun Lab
+# 32. Mentors and Robofun Lab
 
 ### Sunil Solanki
 
@@ -1314,25 +1387,25 @@ The robot, source code, design decisions, testing process and engineering record
 
 ---
 
-# 32. Evidence Philosophy
+# 33. Evidence Philosophy
 
-The project distinguishes between different kinds of engineering evidence.
+The project distinguishes between several types of engineering evidence.
 
 ### Recorded observation
 
-Something physically observed during development or competition.
+Something physically observed during development, testing or competition.
 
 ### Specification
 
-A component rating or documented configuration value.
+A manufacturer or configuration value associated with a component.
 
 ### Calculation
 
-A result derived mathematically from stated inputs and assumptions.
+A result mathematically derived from stated inputs and assumptions.
 
 ### Computer study
 
-A result generated inside a simplified numerical model.
+A result generated using a simplified numerical or computational model.
 
 These categories should not be treated as interchangeable.
 
@@ -1346,11 +1419,11 @@ is a motor specification.
 
 It is not automatically the measured wheel speed of the robot.
 
-Likewise, an encoder count is shaft-motion information and is not automatically exact ground displacement.
+Likewise, an encoder count describes shaft motion and is not automatically exact ground displacement.
 
 ---
 
-# 33. Repository Synchronization
+# 34. Repository Synchronization
 
 The repository should remain synchronized with the software physically running on Starlight.
 
@@ -1377,6 +1450,35 @@ Observed result
 ```
 
 Without those together, reproducing a result becomes guesswork.
+
+---
+
+# 35. Final Pre-Run Checklist
+
+Before an official run:
+
+- [ ] Correct Git/software revision loaded
+- [ ] Battery checked
+- [ ] Raspberry Pi supply stable
+- [ ] Motor and drivetrain free
+- [ ] Steering centered and mechanically clear
+- [ ] Encoder responding
+- [ ] Both cameras detected
+- [ ] Camera exposure checked
+- [ ] HSV / LAB calibration completed
+- [ ] MPU6050 calibration completed while stationary
+- [ ] Three VL53L0X sensors detected
+- [ ] ToF addresses correct
+- [ ] ToF orientations correct
+- [ ] Open controller tested
+- [ ] Obstacle controller tested
+- [ ] Parking sequence tested
+- [ ] Clockwise course tested
+- [ ] Anticlockwise course tested
+- [ ] Course-event cooldown logic checked
+- [ ] Final parking stop logic checked
+- [ ] No loose wires or mechanical interference
+- [ ] Correct files committed to GitHub
 
 ---
 
