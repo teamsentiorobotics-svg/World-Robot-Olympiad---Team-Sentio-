@@ -1,6 +1,6 @@
 # Starlight Bill of Materials
 
-**Team:** Sentio 1747  
+**Team:** Sentio 6010  
 **Robot:** Starlight  
 **Competition:** WRO Future Engineers 2026  
 **Configuration:** APOC / Revision 27  
