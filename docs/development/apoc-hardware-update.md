@@ -1,10 +1,10 @@
 # APOC Hardware Update
 
 **Project:** Starlight  
-**Team:** Sentio 1747  
+**Team:** Sentio 6010  
 **Competition:** WRO Future Engineers 2026  
 **Update:** Post-Nationals → Asia Pacific Open Championship (APOC)  
-**Hardware Configuration:** Revision 27  
+**Hardware Configuration:** Revision 29  
 **Update Date:** September 2026
 
 ---
@@ -980,7 +980,7 @@ The current Rev27 hardware configuration is the reference for APOC documentation
 
 ---
 
-**Team Sentio 1747**  
+**Team Sentio 6010**  
 **Starlight**  
 **WRO Future Engineers 2026**  
 **Robofun Lab (RFL), India**
