@@ -1,7 +1,7 @@
 # Starlight Failure Log
 
 **Project:** Starlight  
-**Team:** Sentio 1747  
+**Team:** Sentio 6010  
 **Competition:** WRO Future Engineers 2026  
 **Purpose:** Record observed failures, identify likely causes, document engineering changes, and verify whether each change improved the system.
 
