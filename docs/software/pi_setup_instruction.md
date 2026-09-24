@@ -2,43 +2,45 @@
 
 ## Team Sentio — WRO Future Engineers 2026
 
-This document describes how to prepare a Raspberry Pi 5, install the required software, configure the cameras and MPU6050, verify the motor and steering system, clone the Team Sentio repository, and run the competition software used by **Starlight**.
+This document describes how to prepare a Raspberry Pi 5, install the required software, configure the cameras, MPU6050, encoder and three VL53L0X sensors, verify the motor and steering system, clone the Team Sentio repository, and run the competition software used by **Starlight**.
 
 **Team:** Deyaan Agrawal, Darsh Zaveri, Aarav Jalan  
+**Mentors:** Sunil Solanki, Shyam Satasiya  
 **Robot:** Starlight  
 **Competition:** World Robot Olympiad 2026 — Future Engineers  
-**Institution / Training Environment:** Robofun Lab (RFL), India
+**Institution / Training Environment:** Robofun Lab (RFL), India  
+**Documentation Revision:** Revision 29, September 2026
 
 The purpose of this guide is **reproducibility**.
 
-A technically competent user should be able to start with a compatible Raspberry Pi 5, reproduce the software environment, connect the documented hardware, verify the required subsystems and understand how the final competition software is launched.
-
-The Open Challenge, Obstacle Challenge and Parking behaviours have been physically tested on Starlight and are working.
+A technically competent user should be able to start with a compatible Raspberry Pi 5, reproduce the software environment, connect the documented hardware, verify the required subsystems and understand how the current competition software is launched.
 
 > [!IMPORTANT]
 > The exact source running on the physically tested robot remains the authoritative competition version.
 >
-> Before the repository is permanently frozen, the Raspberry Pi source, GitHub source and documentation should be confirmed to be identical.
+> The Raspberry Pi source, GitHub source, calibration values, wiring documentation and engineering journal should remain synchronized whenever the competition configuration changes.
 
 ---
 
 # 1. Competition Computing Platform
 
-The final Starlight computing and sensing system uses:
+The current Starlight computing and sensing system uses:
 
 - Raspberry Pi 5, 4 GB
 - Raspberry Pi OS
 - Python 3
-- 2 × Raspberry Pi Camera Module 3
+- 2 × Raspberry Pi Camera Module 3 Wide
 - OpenCV
 - NumPy
 - Picamera2
 - RPi.GPIO-compatible GPIO interface
-- MPU6050 IMU
-- SMBus2
+- SMBus2 / I2C
+- MPU6050 heading sensor
+- 3 × VL53L0X time-of-flight sensors
+- motor quadrature encoder
 - TB6612FNG motor driver
 - DS3225 steering servo
-- JGB37-520 DC geared motor
+- 12 V geared DC encoder motor
 - 3S 11.1 V LiPo battery
 - regulated Raspberry Pi electronics supply
 
@@ -46,26 +48,36 @@ The current GitHub competition source directory is:
 
 ```text
 src/
-├── open_challenge_final_ready_to_go.py
-├── Obstacle_Challenge.py
+├── Cal_APOC.py
+├── Final_Obstacle_Challenge.py
+├── N_Vision_final.py
+├── Sentio_Open_2026.py
+├── openvision.py
+├── TOF_22.py
+├── TUF_test.py
 ├── drive.py
-├── openVision.py
-├── vision.py
+├── encoder_test.py
 ├── heading.py
-└── parking.py
+├── parking_final.py
+└── servo_test.py
 ```
 
-The supporting files have the following roles:
+The principal files have the following roles:
 
 | File | Purpose |
 |---|---|
-| `open_challenge_final_ready_to_go.py` | Final Open Challenge controller |
-| `Obstacle_Challenge.py` | Final Obstacle Challenge controller |
-| `drive.py` | Motor and steering-servo control |
-| `openVision.py` | Open Challenge BLACK / BLUE / ORANGE vision |
-| `vision.py` | Obstacle Challenge multi-colour vision |
-| `heading.py` | MPU6050 heading calculation |
-| `parking.py` | Parking behaviour |
+| `Cal_APOC.py` | Interactive HSV / LAB field calibration |
+| `Final_Obstacle_Challenge.py` | Main Obstacle Challenge controller |
+| `N_Vision_final.py` | Multi-ROI obstacle, wall and course-colour vision |
+| `Sentio_Open_2026.py` | Main Open Challenge controller |
+| `openvision.py` | Open Challenge vision module |
+| `TOF_22.py` | Three-VL53L0X initialization and distance interface |
+| `TUF_test.py` | ToF communication and distance test |
+| `drive.py` | Motor, steering and encoder interface |
+| `encoder_test.py` | Encoder and movement test |
+| `heading.py` | MPU6050 relative-heading calculation |
+| `parking_final.py` | Parking controller |
+| `servo_test.py` | Steering centre, direction and travel test |
 
 ---
 
@@ -78,34 +90,25 @@ Before configuring or running Starlight:
 3. Never connect the 3S LiPo voltage directly to the Raspberry Pi 5 V rail.
 4. Use a properly regulated power supply for the Raspberry Pi.
 5. The DC motor must be controlled through the motor driver and must never be connected directly to Raspberry Pi GPIO.
-6. Ensure all required electronics share the correct common ground.
+6. Ensure connected control electronics share the correct common electrical reference.
 7. Check the steering linkage mechanically before powering the servo.
 8. Raise the drive wheels or place the robot safely on the track before running motor tests.
-9. Keep hands, tools and loose wires away from the wheels and gears.
+9. Keep hands, tools and loose wires away from wheels, gears and the steering mechanism.
 10. Keep a rapid power-disconnect method available during testing.
 11. Charge the LiPo only with an appropriate balance charger and under supervision.
 12. Do not change wiring while the battery is connected.
 13. Do not increase steering travel without mechanically checking the Ackermann linkage.
 14. Stop testing immediately if the Raspberry Pi reports repeated undervoltage warnings.
 
-Earlier development failures led Team Sentio to place greater emphasis on:
-
-- polarity checking,
-- LiPo supervision,
-- controlled power-up,
-- common-ground verification,
-- connector inspection,
-- rapid power isolation.
-
-These checks should be treated as part of the normal setup process.
+These checks are part of the normal setup process, not optional extras added after something starts smoking.
 
 ---
 
 # 3. Install Raspberry Pi OS
 
-Use **Raspberry Pi Imager** to install a current Raspberry Pi OS image.
+Use **Raspberry Pi Imager** to install a current Raspberry Pi OS image compatible with the Raspberry Pi 5.
 
-A Raspberry Pi OS installation with the **graphical desktop** is recommended because the current competition programs use OpenCV display windows through:
+A Raspberry Pi OS installation with the graphical desktop is useful during development because the vision programs may use OpenCV display windows such as:
 
 ```python
 cv2.imshow()
@@ -113,43 +116,47 @@ cv2.imshow()
 
 During Raspberry Pi Imager setup, configure as required:
 
-- username,
-- password,
-- hostname,
-- keyboard layout,
-- locale,
+- username;
+- password;
+- hostname;
+- keyboard layout;
+- locale;
 - Wi-Fi.
 
 After writing the image:
 
-1. Insert the storage device into the Raspberry Pi.
-2. Connect the required display, keyboard and mouse during setup.
-3. Boot the Raspberry Pi.
-4. Complete the Raspberry Pi OS first-run configuration.
+1. insert the storage device into the Raspberry Pi;
+2. connect the required display, keyboard and mouse during setup;
+3. boot the Raspberry Pi;
+4. complete Raspberry Pi OS first-run configuration.
 
 ---
 
 # 4. Record the Operating Environment
 
-For reproducibility, record the main operating-system and Python information:
+For reproducibility, record the operating-system and Python information:
 
 ```bash
 cat /etc/os-release
 ```
 
-Then:
-
 ```bash
 uname -a
 ```
-
-And:
 
 ```bash
 python3 --version
 ```
 
-These values can be retained with the final competition validation record.
+Optional package-state records:
+
+```bash
+python3 -m pip list
+```
+
+```bash
+dpkg -l | grep -E "picamera2|opencv|numpy|smbus|gpio"
+```
 
 Exact package versions should not be invented retrospectively if they were not recorded from the physically tested environment.
 
@@ -176,7 +183,7 @@ After rebooting, open a terminal again.
 
 # 6. Install Required Software
 
-Install the primary Team Sentio dependencies:
+Install the principal Raspberry Pi OS packages:
 
 ```bash
 sudo apt update
@@ -194,12 +201,14 @@ These packages provide:
 
 | Package | Purpose |
 |---|---|
-| `git` | Clone and update the repository |
+| `git` | Clone and synchronize the repository |
 | `python3-picamera2` | Raspberry Pi camera interface |
 | `python3-opencv` | Computer vision |
 | `python3-numpy` | Numerical and image-array processing |
-| `python3-smbus2` | MPU6050 I2C communication |
+| `python3-smbus2` | I2C communication |
 | `i2c-tools` | I2C diagnostics |
+
+Any additional package required by the exact final ToF or encoder source should be installed according to the imports in that tested source.
 
 Verify Python:
 
@@ -211,13 +220,13 @@ python3 --version
 
 # 7. Configure GPIO Support on Raspberry Pi 5
 
-The Team Sentio drive software imports:
+The Team Sentio drive software uses an interface compatible with:
 
 ```python
 import RPi.GPIO as GPIO
 ```
 
-First test whether the installed system already provides a compatible GPIO interface:
+First test the current environment:
 
 ```bash
 python3 -c "import RPi.GPIO as GPIO; print('GPIO import OK')"
@@ -225,7 +234,7 @@ python3 -c "import RPi.GPIO as GPIO; print('GPIO import OK')"
 
 If this succeeds, continue.
 
-If a fresh Raspberry Pi 5 installation does not provide a working compatible interface, install:
+If a Raspberry Pi 5 installation does not provide a working compatible interface, install:
 
 ```bash
 sudo apt install -y python3-rpi-lgpio
@@ -237,20 +246,20 @@ Then verify again:
 python3 -c "import RPi.GPIO as GPIO; print('GPIO interface OK')"
 ```
 
-If a conflicting classic `python3-rpi.gpio` package is present, it may need to be removed first:
+If a conflicting classic package is present:
 
 ```bash
 sudo apt remove -y python3-rpi.gpio
 sudo apt install -y python3-rpi-lgpio
 ```
 
-Do not intentionally maintain multiple conflicting packages providing the same `RPi.GPIO` Python namespace.
+Do not intentionally maintain conflicting packages that provide the same `RPi.GPIO` namespace.
 
 ---
 
 # 8. Enable I2C
 
-The MPU6050 IMU communicates with the Raspberry Pi through I2C.
+The MPU6050 and VL53L0X sensors use I2C.
 
 Run:
 
@@ -272,21 +281,32 @@ Exit and reboot:
 sudo reboot
 ```
 
----
-
-# 9. Verify the MPU6050
-
-After rebooting, scan I2C bus 1:
+After reboot:
 
 ```bash
 i2cdetect -y 1
 ```
 
-The current `heading.py` uses:
+---
+
+# 9. Verify the MPU6050
+
+The shared heading helper is:
 
 ```text
-I2C bus: 1
-MPU6050 address: 0x68
+src/heading.py
+```
+
+The MPU6050 is expected on I2C bus 1 at:
+
+```text
+0x68
+```
+
+Scan:
+
+```bash
+i2cdetect -y 1
 ```
 
 A correctly connected MPU6050 should normally appear as:
@@ -295,25 +315,23 @@ A correctly connected MPU6050 should normally appear as:
 68
 ```
 
-in the I2C scan.
-
 If `68` does not appear:
 
-- check MPU6050 power,
-- check SDA,
-- check SCL,
-- check common ground,
-- confirm I2C is enabled,
-- inspect the connector,
-- confirm the sensor is connected to the expected I2C bus.
+- check MPU6050 power;
+- check SDA;
+- check SCL;
+- check common ground;
+- confirm I2C is enabled;
+- inspect the connector;
+- confirm the sensor is connected to the expected bus.
 
-Do not run IMU-dependent manoeuvres until this is resolved.
+Do not run IMU-dependent manoeuvres until the connection is resolved.
 
 ---
 
 # 10. MPU6050 Wiring
 
-Typical MPU6050 connections are:
+Typical connections are:
 
 | MPU6050 | Raspberry Pi |
 |---|---|
@@ -322,45 +340,44 @@ Typical MPU6050 connections are:
 | SDA | GPIO2 / physical pin 3 |
 | SCL | GPIO3 / physical pin 5 |
 
-The final wiring should always be checked against the electrical schematic in:
+The final wiring should also be checked against:
 
 ```text
 schemes/
+docs/wiring_guide.md
 ```
 
-Do not rely only on this table if the final competition harness has been documented more precisely in the schematic.
+The schematic takes precedence over a generic table if the final harness is documented more precisely there.
 
 ---
 
 # 11. Main GPIO Configuration
 
-The current committed `drive.py` uses BCM GPIO numbering.
+The current documented control assignments are:
 
 | Function | BCM GPIO | Physical Pin |
 |---|---:|---:|
 | Motor driver IN1 | GPIO5 | Pin 29 |
 | Motor driver IN2 | GPIO6 | Pin 31 |
 | Motor PWM | GPIO13 | Pin 33 |
-| Steering servo PWM | GPIO22 | Pin 15 |
+| Steering servo | GPIO22 | Pin 15 |
+| Encoder A | GPIO17 | Pin 11 |
+| Encoder B | GPIO27 | Pin 13 |
 | I2C SDA | GPIO2 | Pin 3 |
 | I2C SCL | GPIO3 | Pin 5 |
+| ToF 1 XSHUT | GPIO16 | Pin 36 |
+| ToF 2 XSHUT | GPIO20 | Pin 38 |
+| ToF 3 XSHUT | GPIO21 | Pin 40 |
 
-The current `drive.py` defines:
-
-```text
-PWM_PIN   = 13
-IN1_PIN   = 5
-IN2_PIN   = 6
-SERVO_PIN = 22
-```
+The competition source remains authoritative if a late tested revision changes any assignment.
 
 ---
 
 # 12. Motor Driver Configuration
 
-The motor is controlled through the TB6612FNG motor-driver system.
+The drive motor is controlled through the TB6612FNG motor-driver system.
 
-Current source configuration:
+The documented motor-control pins are:
 
 ```text
 IN1  = GPIO5
@@ -368,13 +385,13 @@ IN2  = GPIO6
 PWM  = GPIO13
 ```
 
-Motor PWM frequency:
+The motor PWM baseline is:
 
 ```text
 1000 Hz
 ```
 
-The challenge code should control the drivetrain through:
+Challenge controllers should request movement through the shared drive interface:
 
 ```python
 drive.forward(speed)
@@ -382,7 +399,7 @@ drive.backward(speed)
 drive.stop()
 ```
 
-rather than duplicating low-level GPIO control.
+rather than reimplementing low-level GPIO control inside each challenge script.
 
 ---
 
@@ -394,79 +411,142 @@ The DS3225 steering servo is controlled through:
 GPIO22
 ```
 
-Servo PWM frequency:
+with a baseline PWM frequency of:
 
 ```text
 50 Hz
 ```
 
-The **current committed `drive.py`** defines:
+The exact competition steering centre and travel limits are defined by the tested `src/drive.py`.
 
-```text
-LEFT   = 35
-CENTER = 75
-RIGHT  = 105
-```
-
-The `steer()` function also clamps steering commands to the allowed range.
+Do not copy an older centre, left limit or right limit into a new installation without checking the current source and the physical mechanism.
 
 > [!CAUTION]
-> Do not expand the steering range without inspecting the physical Ackermann mechanism.
+> Do not expand the steering range without inspecting the physical Ackermann linkage.
 >
-> Earlier testing showed that excessive steering movement could place high stress on the linkage and could cause mechanical disconnection.
+> Excessive steering travel can load the linkage, bind the mechanism or disconnect steering components.
 
-The exact physically tested source remains authoritative if a competition calibration differs from an older documentation value.
+Use the dedicated test:
+
+```bash
+python3 src/servo_test.py
+```
+
+before a full challenge run.
 
 ---
 
-# 14. Camera Installation
+# 14. Encoder Configuration
 
-Starlight uses two Raspberry Pi Camera Module 3 units.
+The current drive motor includes a quadrature encoder.
+
+Documented encoder pins are:
+
+```text
+Encoder A → GPIO17
+Encoder B → GPIO27
+```
+
+The encoder is used for:
+
+- movement feedback;
+- checking direction;
+- repeatable encoder-targeted movement;
+- motor-response testing.
+
+The encoder measures shaft motion, not exact ground displacement.
+
+Wheel slip, tyre deformation and drivetrain play can make physical travel differ from shaft-based movement.
+
+Use:
+
+```bash
+python3 src/encoder_test.py
+```
+
+to verify the current implementation.
+
+---
+
+# 15. Three VL53L0X Sensors
+
+Starlight uses:
+
+```text
+3 × VL53L0X
+```
+
+The sensors share the I2C bus.
+
+Because identical VL53L0X sensors begin with the same default address, their XSHUT lines are used to enable them sequentially and assign separate working addresses.
+
+The documented XSHUT connections are:
+
+```text
+ToF 1 XSHUT → GPIO16
+ToF 2 XSHUT → GPIO20
+ToF 3 XSHUT → GPIO21
+```
+
+The current sensor interface is:
+
+```text
+src/TOF_22.py
+```
+
+The dedicated test program is:
+
+```text
+src/TUF_test.py
+```
+
+Run:
+
+```bash
+python3 src/TUF_test.py
+```
+
+Verify:
+
+- all three sensors initialize;
+- each sensor responds independently;
+- distances change sensibly when an object is moved;
+- physical sensor orientation matches the software meaning assigned to that sensor.
+
+---
+
+# 16. Camera Installation
+
+Starlight uses:
+
+```text
+2 × Raspberry Pi Camera Module 3 Wide
+```
 
 Always power the Raspberry Pi off before connecting or reseating CSI cables.
 
-## Front Camera
+The camera mounts should remain rigid.
 
-The front camera is used for:
+Changing camera position can alter:
 
-- Open Challenge wall following,
-- blue/orange marker detection,
-- black-wall detection,
-- red/green pillar detection,
-- obstacle navigation,
-- front parking geometry.
+- visible wall geometry;
+- contour position;
+- marker timing;
+- pillar apparent size;
+- parking alignment;
+- ROI validity.
 
-Recorded final geometry includes approximately:
+The current engineering documentation describes a relatively downward-facing camera geometry, approximately:
 
-- 5 mm right of the vehicle centre,
-- approximately 50° downward pitch.
+```text
+60° from horizontal
+```
 
-The mount should remain rigid.
-
-Changing the camera position can alter:
-
-- visible wall geometry,
-- contour position,
-- marker timing,
-- obstacle apparent size,
-- parking alignment.
+Treat camera pose as a mechanical calibration parameter, not merely a cosmetic mounting choice.
 
 ---
 
-## Rear Camera
-
-The rear camera is used primarily for parking.
-
-Recorded geometry includes approximately:
-
-- 45° downward pitch,
-- approximately 0° yaw.
-
-The rear camera should also remain rigid because the parking logic depends on repeatable geometry.
-
----
-
-# 15. Verify Both Cameras
+# 17. Verify Both Cameras
 
 After connecting both cameras:
 
@@ -490,65 +570,18 @@ rpicam-hello --camera 1 --timeout 3000
 
 Confirm for each camera:
 
-- image is visible,
-- image orientation is correct,
-- CSI ribbon is secure,
-- lens is unobstructed,
-- mount is rigid,
+- image is visible;
+- image orientation is correct;
+- CSI ribbon is secure;
+- lens is unobstructed;
+- mount is rigid;
 - no intermittent connection occurs.
 
----
-
-# 16. Current Camera Mapping
-
-The current committed software uses the following camera mapping.
-
-## Open Challenge
-
-`openVision.py` initializes:
-
-```python
-Picamera2(0)
-```
-
-Therefore:
-
-```text
-Camera 0 → front navigation camera
-```
+Camera numbering must be verified on the physical Raspberry Pi before changing software indices.
 
 ---
 
-## Obstacle Challenge
-
-`vision.py` also initializes:
-
-```python
-Picamera2(0)
-```
-
-Therefore:
-
-```text
-Camera 0 → front navigation camera
-```
-
----
-
-## Parking
-
-The current parking source initializes:
-
-```text
-Camera 0 → front camera
-Camera 1 → rear camera
-```
-
-Do not exchange camera numbering immediately before competition without retesting the complete program.
-
----
-
-# 17. Clone the Team Sentio Repository
+# 18. Clone the Team Sentio Repository
 
 From the Raspberry Pi terminal:
 
@@ -580,19 +613,21 @@ The repository should contain items including:
 README.md
 CHANGELOG.md
 requirements.md
+.gitattributes
+.gitignore
+Models/
 docs/
-models/
 schemes/
 src/
 t-photos/
 v-photos/
-video/
+videos/
 other/
 ```
 
 ---
 
-# 18. Verify the Competition Source Directory
+# 19. Verify the Competition Source Directory
 
 Run:
 
@@ -600,33 +635,40 @@ Run:
 ls src
 ```
 
-The current GitHub source directory should include:
+The current documented source directory should contain:
+
+```text
+Cal_APOC.py
+Final_Obstacle_Challenge.py
+N_Vision_final.py
+Sentio_Open_2026.py
+openvision.py
+TOF_22.py
+TUF_test.py
+drive.py
+encoder_test.py
+heading.py
+parking_final.py
+servo_test.py
+```
+
+Do not substitute older development filenames such as:
 
 ```text
 open_challenge_final_ready_to_go.py
 Obstacle_Challenge.py
-drive.py
 openVision.py
 vision.py
-heading.py
 parking.py
 ```
 
-Do not assume an older filename such as:
+unless the physically tested competition Raspberry Pi actually uses those files and the repository has deliberately been reverted to that architecture.
 
-```text
-Open_Challenge.py
-```
-
-The current Open Challenge executable is:
-
-```text
-open_challenge_final_ready_to_go.py
-```
+For Revision 29 documentation, the filenames listed above are the current documented names.
 
 ---
 
-# 19. Record the Exact Git Revision
+# 20. Record the Exact Git Revision
 
 From the repository root:
 
@@ -642,21 +684,19 @@ Also run:
 git status
 ```
 
-For final competition reproducibility, the preferred state is:
+For a frozen competition configuration, the preferred state is:
 
 ```text
 nothing to commit, working tree clean
 ```
 
-Any local modifications on the Raspberry Pi should be reviewed carefully.
-
 A physically tested source file should not exist only as an uncommitted Raspberry Pi edit while GitHub contains a different version.
 
 ---
 
-# 20. Verify External Python Dependencies
+# 21. Verify External Python Dependencies
 
-From the repository root, run:
+From the repository root:
 
 ```bash
 python3 - <<'PY'
@@ -677,9 +717,47 @@ PY
 
 The command should complete without an exception.
 
+The ToF and encoder dependencies should also be tested through the actual competition source because their exact supporting packages must match the tested implementation.
+
 ---
 
-# 21. Verify Core Local Modules
+# 22. Syntax-Check the Current Source
+
+From the repository root:
+
+```bash
+python3 -m py_compile \
+    src/Cal_APOC.py \
+    src/Final_Obstacle_Challenge.py \
+    src/N_Vision_final.py \
+    src/Sentio_Open_2026.py \
+    src/openvision.py \
+    src/TOF_22.py \
+    src/TUF_test.py \
+    src/drive.py \
+    src/encoder_test.py \
+    src/heading.py \
+    src/parking_final.py \
+    src/servo_test.py
+```
+
+A syntax check proves only that Python can parse the files.
+
+It does not prove:
+
+- camera access;
+- I2C communication;
+- GPIO operation;
+- correct steering;
+- correct motor direction;
+- correct vision thresholds;
+- successful autonomous behaviour.
+
+Physical testing remains required.
+
+---
+
+# 23. Verify Core Local Modules
 
 Enter the source directory:
 
@@ -687,32 +765,37 @@ Enter the source directory:
 cd src
 ```
 
-Run:
+Check modules that can safely be imported in the current environment:
 
 ```bash
 python3 - <<'PY'
 import drive
-import openVision
-import vision
 import heading
+import openvision
+import N_Vision_final
 
 print("drive.py: OK")
-print("openVision.py: OK")
-print("vision.py: OK")
 print("heading.py: OK")
-print("Team Sentio core modules: PASS")
+print("openvision.py: OK")
+print("N_Vision_final.py: OK")
+print("Core source imports: PASS")
 PY
 ```
 
-Then return to the root:
+Return to the repository root:
 
 ```bash
 cd ..
 ```
 
+> [!NOTE]
+> Some hardware modules may initialize GPIO, cameras or I2C devices at import time.
+>
+> If a module intentionally performs hardware setup during import, test it only with the robot safely connected and powered.
+
 ---
 
-# 22. Verify `heading.py`
+# 24. Verify `heading.py`
 
 Place the robot on a stable surface.
 
@@ -724,45 +807,31 @@ Run:
 python3 src/heading.py
 ```
 
-The module performs an initial Z-axis gyro calibration.
+Confirm:
 
-The current implementation collects approximately:
+- initialization succeeds;
+- no I2C exception occurs;
+- stationary calibration completes;
+- heading values can be obtained;
+- the documented left/right heading convention matches physical movement.
 
-```text
-1500 samples
-```
-
-with the robot stationary.
-
-If the robot moves during calibration, the resulting gyro offset may be inaccurate.
-
-Confirm that:
-
-- initialization succeeds,
-- no I2C exception occurs,
-- calibration completes,
-- heading values can be obtained.
+The result is a **relative heading estimate**, not a drift-free global compass.
 
 ---
 
-# 23. Verify Motor Direction Safely
+# 25. Verify Motor Direction Safely
 
-Before performing this test:
+Before this test:
 
-- raise the drive wheels,
-- confirm the track area is clear,
-- ensure the battery is secure,
+- raise the drive wheels;
+- confirm the area is clear;
+- secure the battery;
 - keep a power disconnect available.
 
 From the repository root:
 
 ```bash
 cd src
-```
-
-Start Python:
-
-```bash
 python3
 ```
 
@@ -772,7 +841,9 @@ Then:
 import drive
 ```
 
-Test forward motion briefly:
+Test low-speed forward motion using the current function signature defined by `drive.py`.
+
+For example, if the current source accepts a speed argument:
 
 ```python
 drive.forward(20)
@@ -784,7 +855,7 @@ Stop:
 drive.stop()
 ```
 
-Test reverse briefly:
+Test reverse:
 
 ```python
 drive.backward(20)
@@ -796,74 +867,7 @@ Stop:
 drive.stop()
 ```
 
-Then:
-
-```python
-drive.cleanup()
-```
-
-Exit Python:
-
-```python
-exit()
-```
-
-Confirm:
-
-- wheels move in the expected forward direction,
-- reverse direction is correct,
-- motor stops correctly,
-- no binding is present,
-- gears remain engaged.
-
----
-
-# 24. Verify Steering Safely
-
-With the robot stationary:
-
-```bash
-cd src
-python3
-```
-
-Then:
-
-```python
-import drive
-```
-
-Centre:
-
-```python
-drive.steer(drive.CENTER)
-```
-
-Left:
-
-```python
-drive.steer(drive.LEFT)
-```
-
-Centre again:
-
-```python
-drive.steer(drive.CENTER)
-```
-
-Right:
-
-```python
-drive.steer(drive.RIGHT)
-```
-
-Centre:
-
-```python
-drive.steer(drive.CENTER)
-```
-
-Cleanup:
+If `drive.py` exposes a cleanup function:
 
 ```python
 drive.cleanup()
@@ -877,66 +881,102 @@ exit()
 
 Confirm:
 
-- the steering moves in the correct direction,
-- the linkage does not bind,
-- the servo does not force the mechanism past its safe mechanical limits,
-- centre position is suitable for straight travel.
+- forward direction is physically correct;
+- reverse direction is correct;
+- the motor stops correctly;
+- no mechanical binding occurs;
+- gears remain engaged.
 
 ---
 
-# 25. Open Challenge Vision Configuration
+# 26. Verify Steering Safely
+
+The preferred steering test is:
+
+```bash
+python3 src/servo_test.py
+```
+
+Alternatively, if testing interactively:
+
+```bash
+cd src
+python3
+```
+
+Then:
+
+```python
+import drive
+drive.steer(drive.CENTER)
+drive.steer(drive.LEFT)
+drive.steer(drive.CENTER)
+drive.steer(drive.RIGHT)
+drive.steer(drive.CENTER)
+```
+
+If available:
+
+```python
+drive.cleanup()
+```
+
+Exit:
+
+```python
+exit()
+```
+
+Confirm:
+
+- steering direction is correct;
+- centre is suitable for straight travel;
+- linkage does not bind;
+- servo does not force the mechanism past safe travel;
+- steering commands remain inside the calibrated mechanical range.
+
+---
+
+# 27. Open Challenge Vision
 
 The current Open Challenge vision module is:
 
 ```text
-src/openVision.py
+src/openvision.py
 ```
 
-Current primary camera configuration:
+The current Open Challenge controller is:
 
 ```text
-Camera:        Picamera2(0)
-Resolution:    1480 × 520
-Pixel format:  RGB888
-Requested FPS: 60
+src/Sentio_Open_2026.py
 ```
 
-The Open module detects:
+The Open vision system is responsible for the visual information required by the Open Challenge, including wall and course-marker observations used by the controller.
 
-```text
-BLACK
-BLUE
-ORANGE
-```
+The physically tested source remains authoritative for:
 
-The front camera should therefore be checked under competition-like lighting for:
+- resolution;
+- FPS;
+- ROI coordinates;
+- colour thresholds;
+- contour filters;
+- proportional gain;
+- line cooldown;
+- speed and acceleration settings.
 
-- black walls,
-- blue markers,
-- orange markers.
-
-Do not change HSV thresholds immediately before competition without retesting the complete Open Challenge.
+Do not copy tuning constants from an older version simply because the filename looks similar.
 
 ---
 
-# 26. Obstacle Vision Configuration
+# 28. Obstacle Vision
 
-The current Obstacle Challenge vision module is:
-
-```text
-src/vision.py
-```
-
-Current primary camera configuration:
+The current multi-ROI vision module is:
 
 ```text
-Camera:        Picamera2(0)
-Resolution:    1480 × 520
-Pixel format:  RGB888
-Requested FPS: 60
+src/N_Vision_final.py
 ```
 
-The module detects:
+It supports observations involving:
 
 ```text
 RED
@@ -947,276 +987,286 @@ ORANGE
 MAGENTA
 ```
 
-The system combines:
+as required by the current challenge architecture.
 
-- HSV information,
-- LAB information,
-- contour geometry,
-- area filtering,
-- confidence filtering,
-- morphological noise filtering.
+The system may combine:
 
-Test detection under lighting conditions similar to those expected during the competition.
+- HSV information;
+- LAB information;
+- contour geometry;
+- contour area;
+- ROI identity;
+- morphological filtering;
+- body-exclusion regions.
+
+The current documentation uses a multi-ROI image architecture approximately based on:
+
+```text
+720 × 360
+```
+
+The exact active camera configuration and threshold values should be read from the current tested source.
 
 ---
 
-# 27. Run the Open Challenge
+# 29. Field Colour Calibration
 
-Return to the repository root:
-
-```bash
-cd ~/World-Robot-Olympiad---Team-Sentio-
-```
-
-The current Open executable is:
+The current calibration utility is:
 
 ```text
-src/open_challenge_final_ready_to_go.py
+src/Cal_APOC.py
 ```
 
 Run:
 
 ```bash
-python3 src/open_challenge_final_ready_to_go.py
+python3 src/Cal_APOC.py
 ```
 
-The current committed program includes settings such as:
+Calibration should be performed with:
 
-```text
-LINE_COOLDOWN     = 1.3
-TOTAL_LINES       = 12
-KP                = 0.013
-START_SPEED       = 40
-TARGET_SPEED      = 100
-ACCELERATION_TIME = 2.0
-```
+- final camera mount;
+- competition-like field lighting;
+- final exposure behaviour;
+- representative target colours;
+- robot placed at useful near and far distances.
 
-The source itself remains the authoritative reference.
+Check:
 
-Before a full-speed run:
+- black;
+- blue;
+- orange;
+- red;
+- green;
+- magenta;
+- any LAB / HSV ranges used by the final vision source.
 
-1. confirm camera 0 is the front camera,
-2. confirm steering centre,
-3. verify motor direction,
-4. confirm blue/orange detection,
-5. place the robot correctly,
-6. ensure the track is clear.
+After calibration, synchronize the resulting values with the competition vision files if required by the current workflow.
 
-The Open program uses:
-
-```text
-Blue   → anticlockwise direction information
-Orange → clockwise direction information
-Black  → wall following
-```
-
-The robot counts valid course-marker events and stops after the configured completion sequence.
+Do not recalibrate one file while accidentally leaving the challenge controller dependent on another stale vision file.
 
 ---
 
-# 28. Run the Obstacle Challenge
+# 30. Run the Open Challenge
 
 From the repository root:
 
 ```bash
-python3 src/Obstacle_Challenge.py
+cd ~/World-Robot-Olympiad---Team-Sentio-
 ```
 
-The current source imports:
+Run:
 
-```python
-from heading import MPU6050Heading
-import drive
-import vision
-import parking
+```bash
+python3 src/Sentio_Open_2026.py
 ```
 
-Important current configuration values include:
+Before a complete run:
+
+1. verify camera mapping;
+2. verify steering centre;
+3. verify motor direction;
+4. verify black-wall detection;
+5. verify blue/orange course-marker detection;
+6. confirm the correct calibration;
+7. place the robot correctly;
+8. clear the track;
+9. confirm the exact Git revision being tested.
+
+The final source itself remains authoritative for:
+
+- acceleration;
+- speed;
+- steering gain;
+- course-event count;
+- cooldown;
+- final stopping behaviour.
+
+---
+
+# 31. Run the Obstacle Challenge
+
+From the repository root:
+
+```bash
+python3 src/Final_Obstacle_Challenge.py
+```
+
+The current architecture uses supporting modules including:
 
 ```text
-total_lap            = 3
-rs                   = 45
-KP                   = 0.014
-OBSTACLE_ACTION_AREA = 18000
+N_Vision_final.py
+heading.py
+drive.py
+parking_final.py
+TOF_22.py
 ```
+
+depending on the exact final integration.
 
 The Obstacle Challenge combines:
 
-- black-wall following,
-- red-pillar avoidance,
-- green-pillar avoidance,
-- direction-aware navigation,
-- MPU6050 heading,
-- parking.
+- black-wall observations;
+- red-pillar observations;
+- green-pillar observations;
+- direction-aware navigation;
+- course-event counting;
+- MPU6050 relative heading;
+- encoder-assisted movement;
+- parking transition logic.
 
 Before running:
 
-1. confirm MPU6050 address `0x68`,
-2. allow the IMU calibration to complete while stationary,
-3. verify front-camera detection,
-4. verify steering,
-5. verify motor direction,
-6. verify parking dependencies,
-7. position the robot correctly on the track.
+1. confirm MPU6050 communication;
+2. allow IMU calibration to complete while stationary;
+3. verify camera detection;
+4. verify steering;
+5. verify motor direction;
+6. verify the encoder;
+7. verify ToF sensors required by the parking stage;
+8. verify parking dependencies;
+9. position the robot correctly on the track.
 
 ---
 
-# 29. Parking Architecture
+# 32. Parking Architecture
 
-Parking is implemented through:
-
-```text
-src/parking.py
-```
-
-The parking behaviour combines:
-
-- front camera,
-- rear camera,
-- black-wall geometry,
-- magenta detection,
-- MPU6050 heading,
-- forward motion,
-- reverse motion,
-- Ackermann steering corrections.
-
-Current camera mapping:
+The current parking controller is:
 
 ```text
-Front camera → Picamera2(0)
-Rear camera  → Picamera2(1)
+src/parking_final.py
 ```
 
-Because Starlight uses Ackermann steering, the robot cannot rotate in place.
+The parking architecture combines:
 
-Parking therefore requires controlled forward and reverse arcs.
+- camera geometry;
+- wall observations;
+- magenta parking references;
+- MPU6050 heading;
+- three VL53L0X sensors;
+- encoder / drive control;
+- forward and reverse Ackermann arcs.
+
+Because Starlight uses Ackermann steering, it cannot rotate about its centre like a differential-drive robot.
+
+Parking therefore requires controlled forward and reverse movement.
+
+The final tested parking source is authoritative for:
+
+- camera indices;
+- ToF mapping;
+- distance thresholds;
+- heading thresholds;
+- encoder movement;
+- parking entry sequence;
+- final stop logic.
 
 ---
 
-# 30. Important Repository Integrity Check Before Final Freeze
+# 33. Clockwise and Anticlockwise Parking
 
-The physical robot has completed Open, Obstacle and Parking testing successfully.
+Clockwise and anticlockwise course completion do not place the robot in identical positions.
 
-However, before declaring the **GitHub clone itself** completely reproducible, compare the GitHub parking files with the exact versions on the working Raspberry Pi.
+The parking architecture therefore contains direction-dependent positioning before final alignment.
 
-At the time of this documentation update, two items should be checked.
-
-## A. Parking Drive Import
-
-The current GitHub `parking.py` includes:
-
-```python
-import robot_drive as drive
-```
-
-while the visible GitHub `src/` directory contains:
+Conceptually:
 
 ```text
-drive.py
+CLOCKWISE
+Course complete
+      ↓
+Direction-specific entry
+      ↓
+Parking positioning
+      ↓
+Final parallel alignment
+      ↓
+STOP
 ```
-
-and does not currently contain:
 
 ```text
-robot_drive.py
+ANTICLOCKWISE
+Course complete
+      ↓
+Required reposition / turn
+      ↓
+Wall-relative approach
+      ↓
+Parking positioning
+      ↓
+Final parallel alignment
+      ↓
+STOP
 ```
 
-If the physically tested Raspberry Pi uses a separate:
-
-```text
-robot_drive.py
-```
-
-then that exact file must be added to GitHub.
-
-If the physically tested parking program actually uses:
-
-```python
-import drive
-```
-
-then the GitHub `parking.py` should be synchronized with that tested copy.
+The exact final sequence must match the physically tested `parking_final.py` and Obstacle Challenge integration.
 
 ---
 
-## B. Parking Function Entry Point
+# 34. Verify ToF Behaviour Before Parking
 
-The current GitHub `Obstacle_Challenge.py` ends by calling:
-
-```python
-parking.run_parking_clockwise()
-```
-
-The parking file committed to GitHub must expose the exact function called by the tested Obstacle Challenge.
-
-Therefore verify that the working Raspberry Pi copies of:
-
-```text
-Obstacle_Challenge.py
-parking.py
-```
-
-match each other exactly.
-
-Do **not** solve this by guessing immediately before competition.
-
-Use the files from the successfully tested physical robot as the authoritative source.
-
-After synchronizing them:
+Run:
 
 ```bash
-git status
+python3 src/TUF_test.py
 ```
 
-then commit and push the validated files.
+Confirm all three sensors.
+
+Then check the ToF module:
+
+```text
+src/TOF_22.py
+```
+
+against the physical sensor arrangement.
+
+For each sensor, document:
+
+- XSHUT GPIO;
+- working I2C address;
+- physical position;
+- viewing direction;
+- software variable name;
+- parking condition that uses it.
+
+A correct number from the wrong physical sensor is still wrong.
 
 ---
 
-# 31. Clean-Clone Module Verification
+# 35. Component-Test Programs
 
-After resolving the parking dependency and entry-point check, a clean clone should allow:
+The repository includes dedicated tests:
 
-```bash
-cd src
-```
+| Subsystem | File |
+|---|---|
+| Steering | `src/servo_test.py` |
+| Encoder / drive movement | `src/encoder_test.py` |
+| ToF sensors | `src/TUF_test.py` |
+| Heading | `src/heading.py` |
+| Vision calibration | `src/Cal_APOC.py` |
 
-Then:
-
-```bash
-python3 -c "import drive; print('drive: OK')"
-```
-
-```bash
-python3 -c "import openVision; print('openVision: OK')"
-```
-
-```bash
-python3 -c "import vision; print('vision: OK')"
-```
-
-```bash
-python3 -c "import heading; print('heading: OK')"
-```
-
-Finally:
-
-```bash
-python3 -c "import parking; print('parking: OK')"
-```
-
-All required local imports should complete without:
+Recommended order:
 
 ```text
-ModuleNotFoundError
+Power / wiring
+      ↓
+Individual component
+      ↓
+Subsystem
+      ↓
+Low-speed integration
+      ↓
+Full challenge
 ```
+
+Do not begin debugging a complete autonomous run when the actual fault can be reproduced with a small component test.
 
 ---
 
-# 32. Recommended Testing Sequence
+# 36. Recommended Testing Sequence
 
-Do not begin with a full-speed autonomous run after a fresh setup.
-
-Use the following sequence:
+Use:
 
 ```text
 Power / wiring check
@@ -1231,9 +1281,15 @@ Camera 0 test
         ↓
 Camera 1 test
         ↓
+Steering test
+        ↓
 Motor direction test
         ↓
-Steering test
+Encoder test
+        ↓
+Three-ToF test
+        ↓
+Field colour calibration
         ↓
 Open vision check
         ↓
@@ -1250,30 +1306,29 @@ Full Obstacle Challenge
 Parking validation
 ```
 
-This allows faults to be isolated before multiple subsystems interact.
+This allows faults to be isolated before several subsystems interact.
 
 ---
 
-# 33. Minimum Pre-Run Verification
-
-Before competition testing, confirm all of the following.
+# 37. Minimum Pre-Run Verification
 
 ## Power
 
-- battery connected correctly,
-- battery secure,
-- Raspberry Pi supply stable,
-- no repeated undervoltage warnings,
-- common ground present.
+- battery connected correctly;
+- battery secure;
+- Raspberry Pi supply stable;
+- no repeated undervoltage warning;
+- common electrical reference present.
 
 ## Mechanical
 
-- wheels rotate freely,
-- gears engaged,
-- motor mount secure,
-- steering linkage intact,
-- steering linkage not binding,
-- camera mounts rigid.
+- wheels rotate freely;
+- gears remain engaged;
+- motor mount secure;
+- steering linkage intact;
+- steering does not bind;
+- camera mounts rigid;
+- ToF mounts rigid.
 
 ## Raspberry Pi
 
@@ -1295,10 +1350,10 @@ python3 -c "import RPi.GPIO as GPIO; print('GPIO OK')"
 i2cdetect -y 1
 ```
 
-Confirm:
+Confirm the MPU6050 appears at:
 
 ```text
-68
+0x68
 ```
 
 ## Cameras
@@ -1309,7 +1364,7 @@ rpicam-hello --list-cameras
 
 Confirm both cameras are present.
 
-## Repository
+## Source
 
 ```bash
 git status
@@ -1323,7 +1378,82 @@ Confirm the physically tested source is the source being run.
 
 ---
 
-# 34. Troubleshooting — GPIO Import Failure
+# 38. Repository Integrity Check
+
+The GitHub repository should contain every module required by the competition controllers.
+
+At minimum, verify:
+
+```text
+src/Cal_APOC.py
+src/Final_Obstacle_Challenge.py
+src/N_Vision_final.py
+src/Sentio_Open_2026.py
+src/openvision.py
+src/TOF_22.py
+src/TUF_test.py
+src/drive.py
+src/encoder_test.py
+src/heading.py
+src/parking_final.py
+src/servo_test.py
+```
+
+There should not be a required module that exists only on the working Raspberry Pi.
+
+The intended relationship is:
+
+```text
+Physical robot configuration
+        =
+Raspberry Pi source
+        =
+GitHub source
+        =
+Documentation
+```
+
+If a final competition source imports a differently named helper, add that exact tested helper or synchronize the source before freezing the repository.
+
+Do not "fix" an import by guessing which historical file it was probably supposed to use.
+
+---
+
+# 39. Clean-Clone Verification
+
+After cloning the repository on a clean Raspberry Pi environment:
+
+```bash
+git status
+```
+
+should show a clean working tree before local calibration changes are made.
+
+Syntax-check the source:
+
+```bash
+python3 -m py_compile \
+    src/Cal_APOC.py \
+    src/Final_Obstacle_Challenge.py \
+    src/N_Vision_final.py \
+    src/Sentio_Open_2026.py \
+    src/openvision.py \
+    src/TOF_22.py \
+    src/TUF_test.py \
+    src/drive.py \
+    src/encoder_test.py \
+    src/heading.py \
+    src/parking_final.py \
+    src/servo_test.py
+```
+
+Then perform hardware tests in the order documented above.
+
+A clean clone is not considered validated merely because all files compile.
+
+---
+
+# 40. Troubleshooting — GPIO Import Failure
 
 If:
 
@@ -1348,19 +1478,31 @@ Then test again.
 
 ---
 
-# 35. Troubleshooting — GPIO Already Allocated / In Use
+# 41. Troubleshooting — PWM Object Already Exists
 
-If the GPIO library reports that a pin is already allocated, first confirm that another Python robot process is not still running.
+If execution reports something similar to:
 
-Check:
+```text
+RuntimeError: A PWM object already exists for this GPIO channel
+```
+
+check whether two different drive modules are being imported in the same Python process.
+
+For example, avoid an architecture in which one stage initializes:
+
+```python
+import drive
+```
+
+and a later stage imports another module that creates a second PWM object on the same motor or servo GPIO.
+
+Also check whether another robot process is still running:
 
 ```bash
 ps aux | grep python
 ```
 
-Stop only the known conflicting process.
-
-For example:
+Stop only the known conflicting process:
 
 ```bash
 kill <PID>
@@ -1372,11 +1514,13 @@ If required:
 sudo kill <PID>
 ```
 
-Do not indiscriminately kill unrelated system processes.
+The preferred competition architecture should have one clear owner for each GPIO PWM resource.
+
+Do not attempt to solve a duplicate-PWM error by adding arbitrary sleeps. Time is many things, but it is not garbage collection.
 
 ---
 
-# 36. Troubleshooting — MPU6050 Not Detected
+# 42. Troubleshooting — MPU6050 Not Detected
 
 Run:
 
@@ -1386,20 +1530,38 @@ i2cdetect -y 1
 
 If `68` is absent:
 
-- power off,
-- inspect VCC,
-- inspect GND,
-- inspect SDA,
-- inspect SCL,
-- reseat connectors,
-- reboot,
+- power off;
+- inspect VCC;
+- inspect GND;
+- inspect SDA;
+- inspect SCL;
+- reseat connectors;
+- reboot;
 - repeat the scan.
 
 Do not begin the Obstacle Challenge while the sensor connection is unresolved.
 
 ---
 
-# 37. Troubleshooting — Camera Not Detected
+# 43. Troubleshooting — ToF Sensor Failure
+
+If one or more VL53L0X sensors fail to initialize:
+
+1. power-cycle the robot;
+2. inspect all three XSHUT connections;
+3. inspect SDA and SCL;
+4. confirm common ground;
+5. verify the correct XSHUT GPIO numbers;
+6. run `src/TUF_test.py`;
+7. verify sensors are enabled sequentially;
+8. check that unique working addresses are assigned;
+9. confirm a sensor is not physically disconnected or swapped.
+
+Because identical VL53L0X sensors begin at the same default address, attempting to communicate with all of them before address assignment can create an I2C conflict.
+
+---
+
+# 44. Troubleshooting — Camera Not Detected
 
 Run:
 
@@ -1409,27 +1571,20 @@ rpicam-hello --list-cameras
 
 If one camera is missing:
 
-1. power off the Raspberry Pi,
-2. reseat the CSI ribbon,
-3. inspect ribbon orientation,
-4. inspect connector locks,
-5. reboot,
+1. power off the Raspberry Pi;
+2. reseat the CSI ribbon;
+3. inspect ribbon orientation;
+4. inspect connector locks;
+5. reboot;
 6. test again.
 
 Do not reconnect CSI cables while the Raspberry Pi is powered.
 
 ---
 
-# 38. Troubleshooting — Wrong Camera Used
+# 45. Troubleshooting — Wrong Camera Used
 
-The final mapping is intended as:
-
-```text
-Camera 0 → front
-Camera 1 → rear
-```
-
-If camera numbering changes:
+If a controller displays the wrong physical camera:
 
 ```bash
 rpicam-hello --list-cameras
@@ -1437,176 +1592,200 @@ rpicam-hello --list-cameras
 
 Verify which physical camera corresponds to each index.
 
-Do not modify the software camera numbers until you have established whether the hardware enumeration changed.
+Do not modify software camera indices until the actual hardware enumeration is known.
 
-Any camera-index change must be followed by full retesting.
+Any camera-index change should be followed by complete vision and parking retesting.
 
 ---
 
-# 39. Troubleshooting — Motor Does Not Move
+# 46. Troubleshooting — Motor Does Not Move
 
 Check:
 
-- battery,
-- motor-driver power,
-- common ground,
-- GPIO5,
-- GPIO6,
-- GPIO13,
-- TB6612FNG wiring,
-- drivetrain freedom,
+- battery;
+- motor-driver power;
+- common ground;
+- GPIO5;
+- GPIO6;
+- GPIO13;
+- TB6612FNG wiring;
+- drivetrain freedom;
 - motor connections.
 
 Test at reduced speed with the wheels raised.
 
-Do not assume that a non-moving motor is necessarily a software problem.
+A non-moving motor is not automatically a software failure.
 
 ---
 
-# 40. Troubleshooting — Motor Direction Reversed
+# 47. Troubleshooting — Motor Direction Reversed
 
-If:
+If the software's forward command causes physical reverse motion:
 
-```python
-drive.forward()
-```
+1. compare wiring with the schematic;
+2. compare the installed `drive.py` with the tested competition version;
+3. confirm IN1 / IN2 connections;
+4. confirm motor polarity;
+5. determine whether the difference is hardware or software before changing either.
 
-causes physical reverse motion, compare the Raspberry Pi wiring with the documented schematic and the physically validated robot.
-
-Do not casually reverse source logic if the issue is caused by swapped motor connections.
-
-The objective is to make the reproduced hardware and software match the tested robot.
+The goal is to reproduce the physically validated robot, not create a new convention five minutes before a run.
 
 ---
 
-# 41. Troubleshooting — Steering Direction Incorrect
+# 48. Troubleshooting — Steering Direction Incorrect
 
 Check:
 
-- GPIO22,
-- servo supply,
-- common ground,
-- linkage orientation,
-- servo horn installation,
-- current `drive.py`.
+- GPIO22;
+- servo supply;
+- common ground;
+- linkage orientation;
+- servo horn installation;
+- current `drive.py`;
+- current `servo_test.py`.
 
-Do not expand the steering range as a first troubleshooting step.
+Do not expand steering range as a first troubleshooting step.
 
 ---
 
-# 42. Troubleshooting — Steering Oscillation
+# 49. Troubleshooting — Steering Oscillation
 
 Possible causes include:
 
-- proportional gain too large,
-- noisy wall target,
-- camera movement,
-- unstable lighting,
-- loose linkage,
-- excessive mechanical steering travel,
-- vision threshold instability.
+- proportional gain too large;
+- noisy wall target;
+- camera movement;
+- unstable lighting;
+- loose linkage;
+- excessive mechanical steering travel;
+- vision-threshold instability.
 
 Change one variable at a time and retest.
 
 ---
 
-# 43. Troubleshooting — Poor Colour Detection
+# 50. Troubleshooting — Poor Colour Detection
 
 Before changing thresholds:
 
-1. clean the camera lens,
-2. verify camera angle,
-3. verify illumination,
-4. confirm the correct camera,
-5. inspect the OpenCV display,
-6. inspect contour size,
-7. confirm object colour,
-8. compare with competition-like lighting.
+1. clean the camera lens;
+2. verify camera angle;
+3. verify illumination;
+4. confirm the correct camera;
+5. inspect the debug image if enabled;
+6. inspect contour size;
+7. confirm target colour;
+8. compare with competition-like lighting;
+9. run `Cal_APOC.py`.
 
-The Open and Obstacle vision modules use different thresholds.
+Do not assume Open Challenge and Obstacle Challenge thresholds are interchangeable.
 
-Do not copy thresholds blindly between:
-
-```text
-openVision.py
-```
-
-and:
+The relevant current modules are:
 
 ```text
-vision.py
+openvision.py
+N_Vision_final.py
 ```
+
+Each should retain the values validated for its actual use.
 
 ---
 
-# 44. Troubleshooting — Parking Import Failure
+# 51. Troubleshooting — Encoder Does Not Count
 
-If:
+Run:
 
 ```bash
-python3 -c "import parking"
+python3 src/encoder_test.py
 ```
 
-produces:
+Check:
 
-```text
-ModuleNotFoundError: No module named 'robot_drive'
-```
+- GPIO17;
+- GPIO27;
+- encoder power;
+- encoder ground;
+- signal wiring;
+- motor movement;
+- count direction;
+- mechanical encoder connection.
 
-do not invent a replacement module.
-
-Compare the GitHub copy with the physically tested Raspberry Pi files.
-
-Either:
-
-- commit the exact required `robot_drive.py`, or
-- synchronize `parking.py` with the tested version that uses `drive.py`.
-
-The physically validated robot source is authoritative.
+If the motor moves but the count does not change, stop encoder-targeted movements until the feedback path is repaired.
 
 ---
 
-# 45. Troubleshooting — Parking Function Error
+# 52. Troubleshooting — Import Failure
+
+If a competition controller reports:
+
+```text
+ModuleNotFoundError
+```
+
+do not immediately create a dummy replacement module.
+
+Check:
+
+```bash
+grep -R "^import\|^from" src/*.py
+```
+
+Then compare the imports against:
+
+```bash
+ls src
+```
+
+Every required local module should either:
+
+- exist in the repository; or
+- be a documented external dependency.
+
+Synchronize from the physically tested Raspberry Pi if GitHub is missing a required helper.
+
+---
+
+# 53. Troubleshooting — Parking Function Error
 
 If the Obstacle Challenge reports an error such as:
 
 ```text
 AttributeError:
-module 'parking' has no attribute 'run_parking_clockwise'
+module 'parking_final' has no attribute '...'
 ```
 
 compare:
 
 ```text
-Obstacle_Challenge.py
+Final_Obstacle_Challenge.py
+parking_final.py
 ```
 
-and:
+with the working Raspberry Pi versions.
 
-```text
-parking.py
-```
+The function called by the controller and the function defined by the parking module must match.
 
-with the working physical Raspberry Pi.
-
-The function called by `Obstacle_Challenge.py` and the function defined by `parking.py` must match.
-
-Do not rename functions without retesting the complete Obstacle + Parking sequence.
+Do not rename functions without rerunning the complete Obstacle + Parking sequence.
 
 ---
 
-# 46. Do Not Tune Multiple Variables at Once
+# 54. Do Not Tune Multiple Variables at Once
 
-When troubleshooting the robot, avoid changing:
+Avoid simultaneously changing:
 
-- motor speed,
-- steering centre,
-- KP,
-- colour thresholds,
-- camera position,
-- obstacle area threshold,
-
-simultaneously.
+- motor speed;
+- steering centre;
+- steering limits;
+- proportional gain;
+- colour thresholds;
+- ROI coordinates;
+- camera position;
+- obstacle area threshold;
+- orange / blue marker cooldown;
+- ToF distance threshold;
+- encoder target;
+- heading threshold;
+- parking timing.
 
 Instead:
 
@@ -1622,54 +1801,94 @@ Keep or revert
 Move to next variable
 ```
 
-This makes cause-and-effect much easier to understand.
+This makes cause-and-effect much easier to identify.
 
 ---
 
-# 47. Final Competition Release Check
+# 55. Competition Calibration Policy
 
-Before freezing the repository, verify:
+Values such as:
+
+```text
+Steering center
+Steering limits
+Motor speed
+Proportional gain
+Colour thresholds
+ROI coordinates
+Course-marker cooldown
+Distance thresholds
+Encoder movement targets
+Parking timing
+Heading thresholds
+```
+
+can change during field calibration.
+
+The final physically tested source is authoritative.
+
+Whenever competition calibration changes:
+
+1. update the Raspberry Pi source;
+2. test the affected subsystem;
+3. test the affected challenge;
+4. commit the tested source;
+5. push the tested revision;
+6. update documentation if architecture or interfaces changed.
+
+---
+
+# 56. Final Competition Release Check
+
+Before freezing the repository:
 
 - [ ] Raspberry Pi boots correctly.
 - [ ] No repeated undervoltage warning.
 - [ ] GPIO interface imports.
-- [ ] I2C enabled.
+- [ ] I2C is enabled.
 - [ ] MPU6050 detected at `0x68`.
 - [ ] `heading.py` calibration succeeds.
-- [ ] Front camera detected.
-- [ ] Rear camera detected.
-- [ ] Camera 0 is the front camera.
-- [ ] Camera 1 is the rear camera.
+- [ ] Front / primary navigation camera detected.
+- [ ] Second camera detected.
+- [ ] Camera indices match the tested source.
+- [ ] Camera mounts secure.
 - [ ] Motor direction correct.
 - [ ] Drivetrain mechanically free.
+- [ ] Encoder responds correctly.
+- [ ] `encoder_test.py` passes.
 - [ ] Steering linkage secure.
-- [ ] Current steering range mechanically safe.
-- [ ] `openVision.py` works.
-- [ ] `vision.py` works.
+- [ ] Steering range mechanically safe.
+- [ ] `servo_test.py` passes.
+- [ ] All three VL53L0X sensors initialize.
+- [ ] XSHUT sequencing works.
+- [ ] `TOF_22.py` matches the tested sensor arrangement.
+- [ ] `TUF_test.py` passes.
+- [ ] `Cal_APOC.py` calibration matches competition lighting.
+- [ ] `openvision.py` works.
+- [ ] `N_Vision_final.py` works.
 - [ ] Open Challenge source matches the physically tested file.
 - [ ] Obstacle Challenge source matches the physically tested file.
 - [ ] Parking source matches the physically tested file.
-- [ ] Parking drive-module dependency is present.
-- [ ] Parking entry-point function matches `Obstacle_Challenge.py`.
 - [ ] Open Challenge completes a physical run.
 - [ ] Obstacle Challenge completes a physical run.
 - [ ] Parking completes physically.
+- [ ] No required helper exists only on the Raspberry Pi.
 - [ ] `git status` shows no accidental local source changes.
 - [ ] Final Git commit SHA is recorded.
 - [ ] GitHub matches the working Raspberry Pi.
 
 ---
 
-# 48. Final Reproduction Sequence
+# 57. Final Reproduction Sequence
 
-A clean reproduction should follow this general sequence:
+A clean reproduction should follow:
 
 ```text
 Install Raspberry Pi OS
         ↓
 Update system
         ↓
-Install Python / Raspberry Pi dependencies
+Install dependencies
         ↓
 Configure GPIO support
         ↓
@@ -1677,19 +1896,23 @@ Enable I2C
         ↓
 Verify MPU6050
         ↓
-Connect and verify cameras
+Connect and verify both cameras
         ↓
 Clone repository
         ↓
 Record Git revision
         ↓
+Syntax-check source
+        ↓
 Verify external Python imports
         ↓
-Verify local modules
+Verify drive + steering
         ↓
-Test motor
+Verify encoder
         ↓
-Test steering
+Verify all three ToF sensors
+        ↓
+Calibrate vision
         ↓
 Test Open vision
         ↓
@@ -1699,16 +1922,16 @@ Run Open Challenge
         ↓
 Run Obstacle Challenge
         ↓
-Run / validate parking
+Validate parking
         ↓
 Confirm GitHub and Raspberry Pi are synchronized
 ```
 
 ---
 
-# 49. Repository Reproduction Resources
+# 58. Repository Reproduction Resources
 
-The full project should be reproduced using all of the repository material together.
+Use the repository material together.
 
 | Resource | Location |
 |---|---|
@@ -1716,23 +1939,30 @@ The full project should be reproduced using all of the repository material toget
 | Development history | [`../CHANGELOG.md`](../CHANGELOG.md) |
 | Software requirements | [`../requirements.md`](../requirements.md) |
 | Software dependencies | [`Software_Dependencies.md`](Software_Dependencies.md) |
-| Open Challenge | [`../src/open_challenge_final_ready_to_go.py`](../src/open_challenge_final_ready_to_go.py) |
-| Obstacle Challenge | [`../src/Obstacle_Challenge.py`](../src/Obstacle_Challenge.py) |
+| Bill of materials | [`BOM_purchase_links.md`](BOM_purchase_links.md) |
+| Wiring guide | [`wiring_guide.md`](wiring_guide.md) |
+| Open Challenge | [`../src/Sentio_Open_2026.py`](../src/Sentio_Open_2026.py) |
+| Open Challenge vision | [`../src/openvision.py`](../src/openvision.py) |
+| Obstacle Challenge | [`../src/Final_Obstacle_Challenge.py`](../src/Final_Obstacle_Challenge.py) |
+| Multi-ROI vision | [`../src/N_Vision_final.py`](../src/N_Vision_final.py) |
 | Drive control | [`../src/drive.py`](../src/drive.py) |
-| Open vision | [`../src/openVision.py`](../src/openVision.py) |
-| Obstacle vision | [`../src/vision.py`](../src/vision.py) |
+| Encoder test | [`../src/encoder_test.py`](../src/encoder_test.py) |
 | MPU6050 heading | [`../src/heading.py`](../src/heading.py) |
-| Parking | [`../src/parking.py`](../src/parking.py) |
+| Parking | [`../src/parking_final.py`](../src/parking_final.py) |
+| Three-ToF interface | [`../src/TOF_22.py`](../src/TOF_22.py) |
+| ToF test | [`../src/TUF_test.py`](../src/TUF_test.py) |
+| Field calibration | [`../src/Cal_APOC.py`](../src/Cal_APOC.py) |
+| Steering test | [`../src/servo_test.py`](../src/servo_test.py) |
 | Electrical schematic | [`../schemes/`](../schemes/) |
-| CAD / printable components | [`../models/`](../models/) |
+| CAD / printable components | [`../Models/`](../Models/) |
 | Vehicle photographs | [`../v-photos/`](../v-photos/) |
 | Team photographs | [`../t-photos/`](../t-photos/) |
-| Autonomous video evidence | [`../video/`](../video/) |
+| Autonomous video evidence | [`../videos/`](../videos/) |
 | Supporting engineering material | [`../other/`](../other/) |
 
 ---
 
-# 50. Final Release Principle
+# 59. Final Release Principle
 
 The repository should satisfy:
 
@@ -1746,27 +1976,30 @@ Software on GitHub
 Reproduction documentation
 ```
 
-If any last-minute competition adjustment changes:
+If a final competition adjustment changes:
 
-- steering calibration,
-- motor speed,
-- proportional gain,
-- colour threshold,
-- obstacle threshold,
-- camera mapping,
-- marker timing,
-- parking logic,
-- heading logic,
+- steering calibration;
+- motor speed;
+- proportional gain;
+- colour threshold;
+- ROI geometry;
+- obstacle threshold;
+- camera mapping;
+- marker timing;
+- ToF logic;
+- encoder movement;
+- parking logic;
+- heading logic;
 
 the updated version must be retested before it is treated as the final validated competition source.
 
-The goal is not merely for the original Raspberry Pi to run successfully.
+The goal is not merely for one Raspberry Pi to run successfully.
 
-The goal is for the GitHub repository to accurately represent the robot that was physically tested.
+The goal is for the repository to accurately represent the robot that was physically tested.
 
 ---
 
-**Team Sentio**  
+**Team Sentio 1747**  
 **Starlight**  
 **World Robot Olympiad — Future Engineers 2026**  
 **Robofun Lab (RFL), India**
