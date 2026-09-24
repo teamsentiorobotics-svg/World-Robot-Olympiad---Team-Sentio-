@@ -1,9 +1,9 @@
 # Starlight Wiring & Pin Reference
 
 **Project:** Starlight  
-**Team:** Sentio 1747  
+**Team:** Sentio 6010 
 **Competition:** WRO Future Engineers 2026  
-**Configuration:** APOC / Revision 27  
+**Configuration:** APOC / Revision 29  
 **Last updated:** 22 September 2026
 
 This document is a quick reference for Starlight's **power architecture, physical wiring, sensor interfaces and software GPIO assignments**.
@@ -758,5 +758,5 @@ Any mismatch should be corrected before the configuration is frozen.
 
 ---
 
-**Team Sentio 1747**  
+**Team Sentio 6010**  
 **Starlight | WRO Future Engineers 2026**
