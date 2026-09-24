@@ -4,7 +4,7 @@
 
 This document records the software environment, external dependencies, module structure, calibration tools, and reproducibility requirements used by **Team Sentio's autonomous vehicle, Starlight** for **World Robot Olympiad 2026 - Future Engineers**.
 
-The dependency record follows the current **Revision 27 competition architecture**.
+The dependency record follows the current **Revision 29 competition architecture** documented for the final September 2026 submission.
 
 | Item | Current Configuration |
 | --- | --- |
@@ -40,25 +40,28 @@ For complete Raspberry Pi installation and wiring information, also see:
 
 The current competition software is stored in the [`src/`](../src/) directory.
 
-The Rev27 software architecture uses the following principal files:
+The Revision 29 software architecture uses the following principal files:
 
 ```text
 src/
-├── Sentio_Open_2026.py
+├── Cal_APOC.py
 ├── Final_Obstacle_Challenge.py
 ├── N_Vision_final.py
+├── Sentio_Open_2026.py
 ├── openvision.py
-├── parking_final.py
-├── heading.py
-├── Cal_APOC.py
-├── servo_test.py
+├── TOF_22.py
+├── TUF_test.py
+├── drive.py
 ├── encoder_test.py
-└── TUF_test.py
+├── heading.py
+├── parking_final.py
+└── servo_test.py
 ```
 
-The low-level drive interface used by the physically tested challenge programs must also be present in `src/`.
+The current repository therefore includes the competition controllers, vision modules, heading helper, three-ToF interface, low-level drive interface, calibration utility and dedicated component tests required by the documented architecture.
 
-Its exact filename should match the imports in the final Raspberry Pi source.
+> [!IMPORTANT]
+> `openvision.py` is required by the documented Open Challenge architecture and should remain present in `src/` alongside `Sentio_Open_2026.py`.
 
 ---
 
@@ -66,16 +69,18 @@ Its exact filename should match the imports in the final Raspberry Pi source.
 
 | File | Responsibility |
 | --- | --- |
-| [`Sentio_Open_2026.py`](../src/Sentio_Open_2026.py) | Open Challenge wall following, direction logic and course progress |
-| [`Final_Obstacle_Challenge.py`](../src/Final_Obstacle_Challenge.py) | Obstacle selection, course state and movement decisions |
-| [`N_Vision_final.py`](../src/N_Vision_final.py) | Final multi-ROI vision for walls, pillars, markers and parking cues |
-| [`openvision.py`](../src/openvision.py) | Primary lightweight Open Challenge vision implementation |
-| [`parking_final.py`](../src/parking_final.py) | Direction-dependent parking entry and final parallel-parking behaviour |
-| [`heading.py`](../src/heading.py) | MPU6050 calibration and shared relative-heading estimate |
 | [`Cal_APOC.py`](../src/Cal_APOC.py) | Field calibration of LAB and HSV colour thresholds |
-| [`servo_test.py`](../src/servo_test.py) | Steering centre, direction and mechanical-travel testing |
-| [`encoder_test.py`](../src/encoder_test.py) | Encoder direction, response and movement testing |
+| [`Final_Obstacle_Challenge.py`](../src/Final_Obstacle_Challenge.py) | Obstacle selection, course state, movement decisions and transition toward parking |
+| [`N_Vision_final.py`](../src/N_Vision_final.py) | Final multi-ROI vision for walls, pillars, markers and parking cues |
+| [`Sentio_Open_2026.py`](../src/Sentio_Open_2026.py) | Open Challenge wall following, direction logic and course progress |
+| [`openvision.py`](../src/openvision.py) | Primary lightweight Open Challenge vision implementation |
+| [`TOF_22.py`](../src/TOF_22.py) | Three-VL53L0X initialization, XSHUT sequencing and distance interface |
 | [`TUF_test.py`](../src/TUF_test.py) | VL53L0X distance-sensor communication and ranging tests |
+| [`drive.py`](../src/drive.py) | Motor PWM, direction, steering and encoder-assisted movement interface |
+| [`encoder_test.py`](../src/encoder_test.py) | Encoder direction, response and movement testing |
+| [`heading.py`](../src/heading.py) | MPU6050 calibration and shared relative-heading estimate |
+| [`parking_final.py`](../src/parking_final.py) | Direction-dependent parking entry and final parallel-parking behaviour |
+| [`servo_test.py`](../src/servo_test.py) | Steering centre, direction and mechanical-travel testing |
 
 The current architecture deliberately separates:
 
@@ -136,7 +141,7 @@ Sentio_Open_2026.py
 │   ├── NumPy
 │   └── Picamera2
 │
-└── drive interface
+└── drive.py
     ├── GPIO motor control
     ├── steering control
     └── encoder-assisted movement
@@ -172,10 +177,10 @@ Final_Obstacle_Challenge.py
 ├── parking_final.py
 │   ├── camera information
 │   ├── heading information
-│   ├── ToF distance information
+│   ├── TOF_22.py distance information
 │   └── movement control
 │
-└── drive interface
+└── drive.py
     ├── DC motor
     ├── steering servo
     └── encoder
@@ -411,6 +416,12 @@ Assign unique address
 Read sensors independently
 ```
 
+The current three-sensor interface is:
+
+```text
+src/TOF_22.py
+```
+
 The low-level distance test is:
 
 ```text
@@ -463,7 +474,13 @@ Wheel slip, tire deformation and drivetrain compliance can cause body movement t
 
 # Drive and Steering Interface
 
-The final drive interface converts movement requests into:
+The current low-level drive interface is:
+
+```text
+src/drive.py
+```
+
+It converts movement requests into:
 
 ```text
 Motor direction
@@ -702,6 +719,14 @@ The final parking controller is:
 src/parking_final.py
 ```
 
+Its documented supporting interfaces include:
+
+```text
+src/heading.py
+src/TOF_22.py
+src/drive.py
+```
+
 Parking combines several different observations:
 
 | Information | Source |
@@ -867,19 +892,19 @@ From the repository root, the current source can be syntax-checked without execu
 
 ```bash
 python3 -m py_compile \
-    src/Sentio_Open_2026.py \
+    src/Cal_APOC.py \
     src/Final_Obstacle_Challenge.py \
     src/N_Vision_final.py \
+    src/Sentio_Open_2026.py \
     src/openvision.py \
-    src/parking_final.py \
-    src/heading.py \
-    src/Cal_APOC.py \
-    src/servo_test.py \
+    src/TOF_22.py \
+    src/TUF_test.py \
+    src/drive.py \
     src/encoder_test.py \
-    src/TUF_test.py
+    src/heading.py \
+    src/parking_final.py \
+    src/servo_test.py
 ```
-
-If the low-level drive interface is stored as another Python file, include it in this check.
 
 A syntax check does not prove that hardware communication or autonomous behaviour works.
 
@@ -961,21 +986,22 @@ cd World-Robot-Olympiad---Team-Sentio-
 
 A reproducible competition repository should contain the complete source required by the robot.
 
-At minimum, the current Rev27 software map includes:
+At minimum, the current Revision 29 software map includes:
 
 ```text
 src/
-├── Sentio_Open_2026.py
+├── Cal_APOC.py
 ├── Final_Obstacle_Challenge.py
 ├── N_Vision_final.py
+├── Sentio_Open_2026.py
 ├── openvision.py
-├── parking_final.py
-├── heading.py
-├── Cal_APOC.py
-├── servo_test.py
-├── encoder_test.py
+├── TOF_22.py
 ├── TUF_test.py
-└── [final drive interface]
+├── drive.py
+├── encoder_test.py
+├── heading.py
+├── parking_final.py
+└── servo_test.py
 ```
 
 There must not be a required helper module that exists only on the competition Raspberry Pi.
@@ -1153,6 +1179,8 @@ For complete reproduction of Starlight, also refer to:
 | Open Challenge vision | [`../src/openvision.py`](../src/openvision.py) |
 | Parking | [`../src/parking_final.py`](../src/parking_final.py) |
 | MPU6050 heading | [`../src/heading.py`](../src/heading.py) |
+| Three-ToF interface | [`../src/TOF_22.py`](../src/TOF_22.py) |
+| Drive / steering / encoder interface | [`../src/drive.py`](../src/drive.py) |
 | Field calibration | [`../src/Cal_APOC.py`](../src/Cal_APOC.py) |
 | Steering test | [`../src/servo_test.py`](../src/servo_test.py) |
 | Encoder test | [`../src/encoder_test.py`](../src/encoder_test.py) |
@@ -1176,15 +1204,18 @@ Before freezing the repository:
 - [ ] GPIO interface imports correctly
 - [ ] I2C is enabled
 - [ ] MPU6050 responds correctly
+- [ ] `src/TOF_22.py` is present and matches the tested three-sensor implementation
 - [ ] All three VL53L0X sensors initialize independently
 - [ ] XSHUT sequencing works
 - [ ] Encoder direction is correct
+- [ ] `src/drive.py` is present and matches the tested motor / steering / encoder interface
 - [ ] Encoder movement test passes
 - [ ] Steering centre and limits are verified
 - [ ] Both cameras are detected
 - [ ] Final camera mounts are secure
 - [ ] Vision calibration matches field lighting
 - [ ] Body exclusion matches the current camera geometry
+- [ ] `src/openvision.py` is present for the documented Open Challenge architecture
 - [ ] Open Challenge runs with the committed source
 - [ ] Obstacle Challenge runs with the committed source
 - [ ] Parking runs with the committed source
